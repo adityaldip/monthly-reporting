@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Monthly Tracker - Income & Outcome",
   description: "Aplikasi untuk mencatat pemasukan dan pengeluaran bulanan",
+  icons: {
+    icon: '/images/accept2.png',
+    shortcut: '/images/accept2.png',
+    apple: '/images/accept2.png',
+  },
 };
 
 export default function RootLayout({

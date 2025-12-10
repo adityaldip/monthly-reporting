@@ -32,13 +32,9 @@ export default function LoginForm() {
         return;
       }
 
-      // Set session in Supabase client
-      if (data.session) {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-      }
+      // Session is already set in cookies by the server
+      // No need to set it again in client-side to avoid refresh token conflicts
+      // The cookies will be used by server-side API routes
 
       // Redirect ke dashboard atau home
       router.push('/dashboard');
