@@ -45,6 +45,7 @@ export default function SettingsPage() {
   // Budget form
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [budgetForm, setBudgetForm] = useState<{
     category_id: string;
     year: number;
@@ -75,11 +76,11 @@ export default function SettingsPage() {
         });
         const data = await response.json();
         if (!response.ok) {
-          const errorMsg = data.error || 'Gagal memuat currencies';
+          const errorMsg = data.error || t.common.error;
           setError(errorMsg);
           Swal.fire({
             icon: 'error',
-            title: 'Error!',
+            title: t.common.error,
             text: errorMsg,
           });
           return;
@@ -91,11 +92,11 @@ export default function SettingsPage() {
         });
         const data = await response.json();
         if (!response.ok) {
-          const errorMsg = data.error || 'Gagal memuat categories';
+          const errorMsg = data.error || t.common.error;
           setError(errorMsg);
           Swal.fire({
             icon: 'error',
-            title: 'Error!',
+            title: t.common.error,
             text: errorMsg,
           });
           return;
@@ -109,11 +110,11 @@ export default function SettingsPage() {
         );
         const data = await response.json();
         if (!response.ok) {
-          const errorMsg = data.error || 'Gagal memuat budgets';
+          const errorMsg = data.error || t.common.error;
           setError(errorMsg);
           Swal.fire({
             icon: 'error',
-            title: 'Error!',
+            title: t.common.error,
             text: errorMsg,
           });
           return;
@@ -129,11 +130,11 @@ export default function SettingsPage() {
         if (currRes.ok) setCurrencies(currData.currencies || []);
       }
     } catch (err) {
-      const errorMsg = 'Terjadi kesalahan saat memuat data';
+      const errorMsg = t.common.error;
       setError(errorMsg);
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
+        title: t.common.error,
         text: errorMsg,
       });
     } finally {
@@ -166,17 +167,17 @@ export default function SettingsPage() {
       if (!response.ok) {
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menyimpan currency',
+          title: t.common.error,
+          text: data.error || t.common.error,
         });
-        setError(data.error || 'Gagal menyimpan currency');
+        setError(data.error || t.common.error);
         return;
       }
 
       Swal.fire({
         icon: 'success',
-        title: 'Berhasil!',
-        text: editingCurrency ? 'Currency berhasil diupdate' : 'Currency berhasil dibuat',
+        title: t.common.success,
+        text: data.message || t.common.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -191,7 +192,7 @@ export default function SettingsPage() {
       });
       loadData();
     } catch (err) {
-      setError('Terjadi kesalahan saat menyimpan currency');
+      setError(t.common.error);
     }
   };
 
@@ -220,17 +221,17 @@ export default function SettingsPage() {
       if (!response.ok) {
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menyimpan category',
+          title: t.common.error,
+          text: data.error || t.common.error,
         });
-        setError(data.error || 'Gagal menyimpan category');
+        setError(data.error || t.common.error);
         return;
       }
 
       Swal.fire({
         icon: 'success',
-        title: 'Berhasil!',
-        text: editingCategory ? 'Category berhasil diupdate' : 'Category berhasil dibuat',
+        title: t.common.success,
+        text: data.message || t.common.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -245,20 +246,20 @@ export default function SettingsPage() {
       });
       loadData();
     } catch (err) {
-      setError('Terjadi kesalahan saat menyimpan category');
+      setError(t.common.error);
     }
   };
 
   const handleDeleteCurrency = async (id: string) => {
     const result = await Swal.fire({
-      title: 'Apakah Anda yakin?',
-      text: 'Currency ini akan dihapus secara permanen!',
+      title: t.settings.confirmDelete,
+      text: t.settings.confirmDeleteCurrency,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Ya, hapus!',
-      cancelButtonText: 'Batal',
+      confirmButtonText: t.common.yes,
+      cancelButtonText: t.common.cancel,
     });
 
     if (!result.isConfirmed) return;
@@ -273,17 +274,18 @@ export default function SettingsPage() {
         const data = await response.json();
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menghapus currency',
+          title: t.common.error,
+          text: data.error || t.common.error,
         });
-        setError(data.error || 'Gagal menghapus currency');
+        setError(data.error || t.common.error);
         return;
       }
 
+      const deleteData = await response.json();
       Swal.fire({
         icon: 'success',
-        title: 'Dihapus!',
-        text: 'Currency berhasil dihapus',
+        title: t.common.success,
+        text: deleteData.message || t.common.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -291,10 +293,10 @@ export default function SettingsPage() {
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
-        text: 'Terjadi kesalahan saat menghapus currency',
+        title: t.common.error,
+        text: t.common.error,
       });
-      setError('Terjadi kesalahan saat menghapus currency');
+      setError(t.common.error);
     }
   };
 
@@ -312,14 +314,14 @@ export default function SettingsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Gagal mengupdate exchange rates');
+        setError(data.error || t.common.error);
         return;
       }
 
       Swal.fire({
         icon: 'success',
-        title: 'Berhasil!',
-        text: 'Exchange rates berhasil diupdate',
+        title: t.common.success,
+        text: data.message || t.common.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -327,10 +329,10 @@ export default function SettingsPage() {
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
-        text: 'Terjadi kesalahan saat mengupdate exchange rates',
+        title: t.common.error,
+        text: t.common.error,
       });
-      setError('Terjadi kesalahan saat mengupdate exchange rates');
+      setError(t.common.error);
     } finally {
       setUpdatingRates(false);
     }
@@ -338,14 +340,14 @@ export default function SettingsPage() {
 
   const handleDeleteCategory = async (id: string) => {
     const result = await Swal.fire({
-      title: 'Apakah Anda yakin?',
-      text: 'Category ini akan dihapus secara permanen!',
+      title: t.settings.confirmDelete,
+      text: t.settings.confirmDeleteCategory,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Ya, hapus!',
-      cancelButtonText: 'Batal',
+      confirmButtonText: t.common.yes,
+      cancelButtonText: t.common.cancel,
     });
 
     if (!result.isConfirmed) return;
@@ -356,21 +358,22 @@ export default function SettingsPage() {
         credentials: 'include',
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menghapus category',
+          title: t.common.error,
+          text: data.error || t.common.error,
         });
-        setError(data.error || 'Gagal menghapus category');
+        setError(data.error || t.common.error);
         return;
       }
 
       Swal.fire({
         icon: 'success',
-        title: 'Dihapus!',
-        text: 'Category berhasil dihapus',
+        title: t.common.success,
+        text: data.message || t.common.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -378,10 +381,10 @@ export default function SettingsPage() {
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
-        text: 'Terjadi kesalahan saat menghapus category',
+        title: t.common.error,
+        text: t.common.error,
       });
-      setError('Terjadi kesalahan saat menghapus category');
+      setError(t.common.error);
     }
   };
 
@@ -486,50 +489,133 @@ export default function SettingsPage() {
       return;
     }
 
-    try {
-      const url = editingBudget
-        ? `/api/budgets/${editingBudget.id}`
-        : '/api/budgets';
-      const method = editingBudget ? 'PUT' : 'POST';
+    // For edit mode, use single month
+    if (editingBudget) {
+      try {
+        const response = await fetch(`/api/budgets/${editingBudget.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            category_id: budgetForm.category_id,
+            year: budgetForm.year,
+            month: budgetForm.month,
+            amount: amountValue,
+            currency_id: budgetForm.currency_id,
+            alert_threshold: alertThresholdValue,
+          }),
+        });
 
-      // Prepare payload with parsed values
-      const payload = {
-        category_id: budgetForm.category_id,
-        year: budgetForm.year,
-        month: budgetForm.month,
-        amount: amountValue,
-        currency_id: budgetForm.currency_id,
-        alert_threshold: alertThresholdValue,
-      };
+        const data = await response.json();
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
+        if (!response.ok) {
+          Swal.fire({
+            icon: 'error',
+            title: t.common.error,
+            text: data.error || t.common.error,
+          });
+          return;
+        }
 
-      const data = await response.json();
+        Swal.fire({
+          icon: 'success',
+          title: t.common.success,
+          text: data.message || t.common.success,
+          timer: 2000,
+          showConfirmButton: false,
+        });
 
-      if (!response.ok) {
+        setShowBudgetForm(false);
+        setEditingBudget(null);
+        setSelectedMonths([]);
+        setBudgetForm({
+          category_id: '',
+          year: new Date().getFullYear(),
+          month: new Date().getMonth() + 1,
+          amount: '',
+          currency_id: '',
+          alert_threshold: '80',
+        });
+        loadData();
+      } catch (err) {
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menyimpan budget',
+          title: t.common.error,
+          text: t.common.error,
+        });
+      }
+      return;
+    }
+
+    // For create mode, check if multiple months selected
+    const monthsToCreate = selectedMonths.length > 0 ? selectedMonths : [];
+
+    if (monthsToCreate.length === 0) {
+      Swal.fire({
+        icon: 'error',
+        title: t.common.error,
+        text: t.common.error,
+      });
+      return;
+    }
+
+    try {
+      // Create budget for each selected month
+      const promises = monthsToCreate.map((month) =>
+        fetch('/api/budgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            category_id: budgetForm.category_id,
+            year: budgetForm.year,
+            month: month,
+            amount: amountValue,
+            currency_id: budgetForm.currency_id,
+            alert_threshold: alertThresholdValue,
+          }),
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      const responses = await Promise.all(
+        results.map((result) =>
+          result.status === 'fulfilled' ? result.value.json() : Promise.resolve({ error: 'Failed' })
+        )
+      );
+
+      const errors = responses.filter((r) => r.error);
+      const successes = responses.filter((r) => !r.error);
+
+      if (errors.length > 0 && successes.length === 0) {
+        Swal.fire({
+          icon: 'error',
+          title: t.common.error,
+          text: errors[0]?.error || t.common.error,
         });
         return;
       }
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil!',
-        text: data.message || 'Budget berhasil disimpan',
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      if (errors.length > 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: t.common.warning,
+          text: `${successes.length} ${t.budget.title} ${t.common.success}, ${errors.length} ${t.common.error}.`,
+          timer: 3000,
+        });
+      } else {
+        Swal.fire({
+          icon: 'success',
+          title: t.common.success,
+          text: `${successes.length} ${t.budget.title} ${t.common.success}`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
 
       setShowBudgetForm(false);
       setEditingBudget(null);
+      setSelectedMonths([]);
       setBudgetForm({
         category_id: '',
         year: new Date().getFullYear(),
@@ -542,14 +628,15 @@ export default function SettingsPage() {
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
-        text: 'Terjadi kesalahan saat menyimpan budget',
+        title: t.common.error,
+        text: t.common.error,
       });
     }
   };
 
   const openEditBudget = (budget: Budget) => {
     setEditingBudget(budget);
+    setSelectedMonths([]); // Clear selected months for edit mode
     setBudgetForm({
       category_id: budget.category_id,
       year: budget.year,
@@ -585,16 +672,16 @@ export default function SettingsPage() {
         if (!response.ok) {
           Swal.fire({
             icon: 'error',
-            title: 'Error!',
-            text: data.error || 'Gagal menghapus budget',
+            title: t.common.error,
+            text: data.error || t.common.error,
           });
           return;
         }
 
         Swal.fire({
           icon: 'success',
-          title: 'Berhasil!',
-          text: data.message || 'Budget berhasil dihapus',
+          title: t.common.success,
+          text: data.message || t.common.success,
           timer: 2000,
           showConfirmButton: false,
         });
@@ -603,8 +690,8 @@ export default function SettingsPage() {
       } catch (err) {
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: 'Terjadi kesalahan saat menghapus budget',
+          title: t.common.error,
+          text: t.common.error,
         });
       }
     }
@@ -620,8 +707,8 @@ export default function SettingsPage() {
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Pengaturan</h1>
-          <p className="mt-2 text-gray-600">Kelola currency dan category Anda</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t.settings.title}</h1>
+          <p className="mt-2 text-gray-600">{t.settings.subtitle}</p>
         </div>
 
         {error && (
@@ -647,7 +734,7 @@ export default function SettingsPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Currencies
+              {t.settings.currencies}
             </button>
             <button
               onClick={() => setActiveTab('categories')}
@@ -657,7 +744,7 @@ export default function SettingsPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Categories
+              {t.settings.categories}
             </button>
             <button
               onClick={() => setActiveTab('budgets')}
@@ -676,14 +763,14 @@ export default function SettingsPage() {
         {activeTab === 'currencies' && (
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-xl font-semibold text-gray-900">Currencies</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{t.settings.currencies}</h2>
               <div className="flex gap-2">
                 <button
                   onClick={handleUpdateExchangeRates}
                   disabled={updatingRates || currencies.length === 0}
                   className="px-4 py-2 bg-[#10B981] text-white rounded-md hover:bg-[#059669] transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {updatingRates ? 'Updating...' : '🔄 Update Exchange Rates'}
+                  {updatingRates ? t.settings.updatingRates : t.settings.updateRates}
                 </button>
                 <button
                   onClick={() => {
@@ -699,18 +786,34 @@ export default function SettingsPage() {
                   }}
                   className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium text-sm"
                 >
-                  + Tambah Currency
+                  + {t.settings.addCurrency}
                 </button>
               </div>
             </div>
 
             {loading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
+              <div className="p-6 text-center text-gray-500">{t.common.loading}</div>
             ) : (
               <div className="p-6">
+                {/* Default Currency Info */}
+                {currencies.length > 0 && (
+                  <div className="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-blue-800 mb-1">{t.settings.defaultCurrencyInfo}</p>
+                        <p className="text-sm text-blue-700">{t.settings.defaultCurrencyDescription}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {currencies.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
-                    Belum ada currency. Tambahkan currency pertama Anda.
+                    {t.settings.noCurrency}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -718,22 +821,22 @@ export default function SettingsPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Code
+                            {t.settings.code}
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
+                            {t.settings.name}
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Symbol
+                            {t.settings.symbol}
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Exchange Rate
+                            {t.settings.exchangeRate}
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Default
+                            {t.settings.default}
                           </th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
+                            {t.settings.actions}
                           </th>
                         </tr>
                       </thead>
@@ -751,7 +854,7 @@ export default function SettingsPage() {
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               {currency.is_default ? (
-                                <span className="font-semibold">1.0 (Base)</span>
+                                <span className="font-semibold">1.0 ({t.settings.base})</span>
                               ) : (
                                 <span>{currency.exchange_rate.toFixed(6)}</span>
                               )}
@@ -759,7 +862,7 @@ export default function SettingsPage() {
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               {currency.is_default ? (
                                 <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-[#059669]">
-                                  Default
+                                  {t.settings.default}
                                 </span>
                               ) : (
                                 '-'
@@ -770,13 +873,13 @@ export default function SettingsPage() {
                                 onClick={() => openEditCurrency(currency)}
                                 className="text-[#2563EB] hover:text-[#1E40AF] mr-4"
                               >
-                                Edit
+                                {t.common.edit}
                               </button>
                               <button
                                 onClick={() => handleDeleteCurrency(currency.id)}
                                 className="text-[#EF4444] hover:text-[#DC2626]"
                               >
-                                Hapus
+                                {t.settings.deleteCurrency}
                               </button>
                             </td>
                           </tr>
@@ -794,7 +897,7 @@ export default function SettingsPage() {
         {activeTab === 'categories' && (
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Categories</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{t.settings.categories}</h2>
               <button
                 onClick={() => {
                   setShowCategoryForm(true);
@@ -809,12 +912,12 @@ export default function SettingsPage() {
                 }}
                 className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium text-sm"
               >
-                + Tambah Category
+                + {t.settings.addCategory}
               </button>
             </div>
 
             {loading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
+              <div className="p-6 text-center text-gray-500">{t.common.loading}</div>
             ) : (
               <div className="p-6">
                 <div className="mb-4">
@@ -827,19 +930,19 @@ export default function SettingsPage() {
                       }}
                       className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                     >
-                      Income ({categories.filter((c) => c.type === 'income').length})
+                      {t.transactions.income} ({categories.filter((c) => c.type === 'income').length})
                     </button>
                     <button
                       className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                     >
-                      Outcome ({categories.filter((c) => c.type === 'outcome').length})
+                      {t.transactions.outcome} ({categories.filter((c) => c.type === 'outcome').length})
                     </button>
                   </div>
                 </div>
 
                 {categories.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
-                    Belum ada category. Tambahkan category pertama Anda.
+                    {t.settings.noCategory}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -915,12 +1018,12 @@ export default function SettingsPage() {
               >
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    {editingCurrency ? 'Edit Currency' : 'Tambah Currency'}
+                    {editingCurrency ? t.settings.editCurrency : t.settings.addCurrency}
                   </h3>
                   <form onSubmit={handleCurrencySubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Currency <span className="text-[#EF4444]">*</span>
+                        {t.settings.code} <span className="text-[#EF4444]">*</span>
                       </label>
                       {editingCurrency ? (
                         <input
@@ -936,7 +1039,7 @@ export default function SettingsPage() {
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         >
-                          <option value="">Pilih Currency</option>
+                          <option value="">{t.common.filter} {t.settings.code}</option>
                           {WORLDWIDE_CURRENCIES.map((currency) => {
                             // Filter out currencies that already exist
                             const exists = currencies.some((c) => c.code === currency.code);
@@ -946,7 +1049,7 @@ export default function SettingsPage() {
                                 value={currency.code}
                                 disabled={exists}
                               >
-                                {currency.code} - {currency.name} {exists && '(Sudah ada)'}
+                                {currency.code} - {currency.name} {exists && `(${t.common.yes})`}
                               </option>
                             );
                           })}
@@ -954,13 +1057,13 @@ export default function SettingsPage() {
                       )}
                       {editingCurrency && (
                         <p className="mt-1 text-xs text-gray-500">
-                          Code tidak dapat diubah saat edit
+                          {t.settings.codeCannotChange}
                         </p>
                       )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Name <span className="text-[#EF4444]">*</span>
+                        {t.settings.name} <span className="text-[#EF4444]">*</span>
                       </label>
                       <input
                         type="text"
@@ -970,12 +1073,12 @@ export default function SettingsPage() {
                         }
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
-                        placeholder="US Dollar"
+                        placeholder={t.settings.name}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Symbol
+                        {t.settings.symbol}
                       </label>
                       <input
                         type="text"
@@ -989,7 +1092,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Exchange Rate
+                        {t.settings.exchangeRate}
                       </label>
                       <input
                         type="number"
@@ -1003,6 +1106,11 @@ export default function SettingsPage() {
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                       />
+                      {!currencyForm.is_default && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          {t.settings.defaultCurrencyDescription}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center">
                       <input
@@ -1015,7 +1123,7 @@ export default function SettingsPage() {
                         className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
                       />
                       <label htmlFor="is_default" className="ml-2 block text-sm text-gray-900">
-                        Set as default currency
+                        {t.settings.setAsDefault}
                       </label>
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
@@ -1027,13 +1135,13 @@ export default function SettingsPage() {
                         }}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
                       >
-                        Batal
+                        {t.common.cancel}
                       </button>
                       <button
                         type="submit"
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
                       >
-                        Simpan
+                        {t.common.save}
                       </button>
                     </div>
                   </form>
@@ -1135,7 +1243,7 @@ export default function SettingsPage() {
                         className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
                       />
                       <label htmlFor="is_default_cat" className="ml-2 block text-sm text-gray-900">
-                        Set as default category
+                        {t.settings.setAsDefaultCategory}
                       </label>
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
@@ -1147,13 +1255,13 @@ export default function SettingsPage() {
                         }}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
                       >
-                        Batal
+                        {t.common.cancel}
                       </button>
                       <button
                         type="submit"
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
                       >
-                        Simpan
+                        {t.common.save}
                       </button>
                     </div>
                   </form>
@@ -1171,11 +1279,13 @@ export default function SettingsPage() {
               <button
                 onClick={() => {
                   setEditingBudget(null);
+                  const currentMonth = new Date().getMonth() + 1;
+                  setSelectedMonths([currentMonth]); // Default to current month
                   const defaultCurrency = currencies.find((c) => c.is_default);
                   setBudgetForm({
                     category_id: '',
                     year: new Date().getFullYear(),
-                    month: new Date().getMonth() + 1,
+                    month: currentMonth,
                     amount: '',
                     currency_id: defaultCurrency?.id || '',
                     alert_threshold: '80',
@@ -1297,6 +1407,7 @@ export default function SettingsPage() {
               onClick={() => {
                 setShowBudgetForm(false);
                 setEditingBudget(null);
+                setSelectedMonths([]);
               }}
             />
             <div className="flex min-h-full items-center justify-center p-4">
@@ -1330,21 +1441,22 @@ export default function SettingsPage() {
                         ))}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-1">
-                        {t.budget.year} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={budgetForm.year}
-                        onChange={(e) => setBudgetForm({ ...budgetForm, year: parseInt(e.target.value) })}
-                        required
-                        min="2020"
-                        max="2100"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      {t.budget.year} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={budgetForm.year}
+                      onChange={(e) => setBudgetForm({ ...budgetForm, year: parseInt(e.target.value) })}
+                      required
+                      min="2020"
+                      max="2100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                    />
+                  </div>
+                  {editingBudget ? (
+                    // Edit mode: single month selector
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
                         {t.budget.month} <span className="text-red-500">*</span>
@@ -1362,7 +1474,74 @@ export default function SettingsPage() {
                         ))}
                       </select>
                     </div>
-                  </div>
+                  ) : (
+                    // Create mode: multiple months selector
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.budget.month} <span className="text-red-500">*</span>
+                        <span className="text-xs text-gray-500 ml-2">{t.settings.selectOneOrMoreMonths}</span>
+                      </label>
+                      <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                        <div className="flex items-center justify-between mb-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedMonths.length === 12) {
+                                setSelectedMonths([]);
+                              } else {
+                                setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+                              }
+                            }}
+                            className="text-xs text-[#2563EB] hover:text-[#1E40AF]"
+                          >
+                            {selectedMonths.length === 12 ? t.settings.removeAll : t.settings.selectAll}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                            const isSelected = selectedMonths.includes(m);
+                            return (
+                              <label
+                                key={m}
+                                className={`flex items-center p-2 rounded cursor-pointer transition ${
+                                  isSelected
+                                    ? 'bg-[#2563EB] text-white'
+                                    : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedMonths([...selectedMonths, m].sort((a, b) => a - b));
+                                    } else {
+                                      setSelectedMonths(selectedMonths.filter((month) => month !== m));
+                                    }
+                                  }}
+                                  className="mr-2"
+                                />
+                                <span className="text-sm">
+                                  {new Date(2000, m - 1).toLocaleString('default', { month: 'short' })}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {selectedMonths.length > 0 ? (
+                        <p className="mt-2 text-xs text-gray-600">
+                          {selectedMonths.length} bulan dipilih: {selectedMonths
+                            .map((m) => new Date(2000, m - 1).toLocaleString('default', { month: 'short' }))
+                            .join(', ')}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-red-500">
+                          {t.settings.selectAtLeastOneMonth}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
                       {t.budget.amount} <span className="text-red-500">*</span>

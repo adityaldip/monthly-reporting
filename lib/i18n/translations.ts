@@ -53,6 +53,11 @@ export interface Translations {
     amount: string;
     amountOriginal: string;
     amountConverted: string;
+    warningNoCurrency: string;
+    warningNoCategory: string;
+    warningNoCurrencyAndCategory: string;
+    warningAddInSettings: string;
+    warningToStartTransaction: string;
   };
 
   // Transactions
@@ -158,9 +163,22 @@ export interface Translations {
     editCategory: string;
     deleteCategory: string;
     updateRates: string;
+    updatingRates: string;
     confirmDelete: string;
     confirmDeleteCurrency: string;
     confirmDeleteCategory: string;
+    noCurrency: string;
+    noCategory: string;
+    base: string;
+    defaultCurrencyInfo: string;
+    defaultCurrencyDescription: string;
+    setAsDefault: string;
+    setAsDefaultCategory: string;
+    codeCannotChange: string;
+    selectOneOrMoreMonths: string;
+    selectAll: string;
+    removeAll: string;
+    selectAtLeastOneMonth: string;
   };
 
   // Profile
@@ -297,6 +315,11 @@ export const translations: Record<Language, Translations> = {
       date: 'Tanggal',
       category: 'Kategori',
       description: 'Deskripsi',
+      warningNoCurrency: 'Anda belum memiliki currency.',
+      warningNoCategory: 'Anda belum memiliki kategori.',
+      warningNoCurrencyAndCategory: 'Anda belum memiliki currency dan kategori.',
+      warningAddInSettings: 'Silakan tambahkan di',
+      warningToStartTransaction: 'untuk mulai menambah transaksi.',
       amount: 'Jumlah',
       amountOriginal: 'Jumlah (Original)',
       amountConverted: 'Jumlah',
@@ -392,16 +415,29 @@ export const translations: Record<Language, Translations> = {
       icon: 'Icon',
       color: 'Color',
       actions: 'Actions',
-      addCurrency: 'Add Currency',
+      addCurrency: 'Tambah Currency',
       editCurrency: 'Edit Currency',
-      deleteCurrency: 'Delete Currency',
-      addCategory: 'Add Category',
+      deleteCurrency: 'Hapus',
+      addCategory: 'Tambah Category',
       editCategory: 'Edit Category',
-      deleteCategory: 'Delete Category',
-      updateRates: 'Update Exchange Rates',
+      deleteCategory: 'Hapus',
+      updateRates: '🔄 Update Exchange Rates',
+      updatingRates: 'Memperbarui...',
       confirmDelete: 'Apakah Anda yakin ingin menghapus?',
       confirmDeleteCurrency: 'Apakah Anda yakin ingin menghapus currency ini?',
       confirmDeleteCategory: 'Apakah Anda yakin ingin menghapus category ini?',
+      noCurrency: 'Belum ada currency. Tambahkan currency pertama Anda.',
+      noCategory: 'Belum ada category. Tambahkan category pertama Anda.',
+      base: 'Base',
+      defaultCurrencyInfo: 'Info: Default Currency',
+      defaultCurrencyDescription: 'Anda harus mengatur satu currency sebagai default (base currency). Exchange rate untuk currency lain akan dikonversi relatif terhadap base currency ini. Base currency memiliki exchange rate 1.0.',
+      setAsDefault: 'Set as default currency',
+      setAsDefaultCategory: 'Set as default category',
+      codeCannotChange: 'Code tidak dapat diubah saat edit',
+      selectOneOrMoreMonths: '(Pilih satu atau lebih bulan)',
+      selectAll: 'Pilih Semua',
+      removeAll: 'Hapus Semua',
+      selectAtLeastOneMonth: 'Pilih minimal satu bulan',
     },
     profile: {
       title: 'Profil',
@@ -527,6 +563,11 @@ export const translations: Record<Language, Translations> = {
       noTransactions: 'No transactions yet. Start by adding income or outcome.',
       date: 'Date',
       category: 'Category',
+      warningNoCurrency: 'You don\'t have any currency yet.',
+      warningNoCategory: 'You don\'t have any category yet.',
+      warningNoCurrencyAndCategory: 'You don\'t have any currency and category yet.',
+      warningAddInSettings: 'Please add them in',
+      warningToStartTransaction: 'to start adding transactions.',
       description: 'Description',
       amount: 'Amount',
       amountOriginal: 'Amount (Original)',
@@ -625,14 +666,27 @@ export const translations: Record<Language, Translations> = {
       actions: 'Actions',
       addCurrency: 'Add Currency',
       editCurrency: 'Edit Currency',
-      deleteCurrency: 'Delete Currency',
+      deleteCurrency: 'Delete',
       addCategory: 'Add Category',
       editCategory: 'Edit Category',
-      deleteCategory: 'Delete Category',
-      updateRates: 'Update Exchange Rates',
+      deleteCategory: 'Delete',
+      updateRates: '🔄 Update Exchange Rates',
+      updatingRates: 'Updating...',
       confirmDelete: 'Are you sure you want to delete?',
       confirmDeleteCurrency: 'Are you sure you want to delete this currency?',
       confirmDeleteCategory: 'Are you sure you want to delete this category?',
+      noCurrency: 'No currencies yet. Add your first currency.',
+      noCategory: 'No categories yet. Add your first category.',
+      base: 'Base',
+      defaultCurrencyInfo: 'Info: Default Currency',
+      defaultCurrencyDescription: 'You must set one currency as default (base currency). Exchange rates for other currencies will be converted relative to this base currency. Base currency has an exchange rate of 1.0.',
+      setAsDefault: 'Set as default currency',
+      setAsDefaultCategory: 'Set as default category',
+      codeCannotChange: 'Code cannot be changed when editing',
+      selectOneOrMoreMonths: '(Select one or more months)',
+      selectAll: 'Select All',
+      removeAll: 'Remove All',
+      selectAtLeastOneMonth: 'Select at least one month',
     },
     profile: {
       title: 'Profile',

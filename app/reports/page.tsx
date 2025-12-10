@@ -88,10 +88,49 @@ export default function ReportsPage() {
   const [reportsData, setReportsData] = useState<ReportsData | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [currencies, setCurrencies] = useState<any[]>([]);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
+
+  useEffect(() => {
+    loadCurrencies();
+  }, []);
+
+  useEffect(() => {
+    // Load saved currency preference from localStorage
+    const savedCurrency = localStorage.getItem('reportsDisplayCurrency');
+    if (savedCurrency && currencies.length > 0) {
+      const currencyExists = currencies.find((c) => c.code === savedCurrency);
+      if (currencyExists) {
+        setSelectedCurrency(savedCurrency);
+      } else if (currencies.length > 0) {
+        // Use default currency if saved currency doesn't exist
+        const defaultCurrency = currencies.find((c) => c.is_default);
+        setSelectedCurrency(defaultCurrency?.code || currencies[0]?.code || '');
+      }
+    } else if (currencies.length > 0 && !selectedCurrency) {
+      // Set default currency if no saved preference
+      const defaultCurrency = currencies.find((c) => c.is_default);
+      setSelectedCurrency(defaultCurrency?.code || currencies[0]?.code || '');
+    }
+  }, [currencies]);
 
   useEffect(() => {
     loadReportsData();
   }, [selectedYear, selectedMonth]);
+
+  const loadCurrencies = async () => {
+    try {
+      const response = await fetch('/api/currencies', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCurrencies(data.currencies || []);
+      }
+    } catch (err) {
+      console.error('Failed to load currencies:', err);
+    }
+  };
 
   const loadReportsData = async () => {
     setLoading(true);
@@ -118,13 +157,48 @@ export default function ReportsPage() {
     }
   };
 
+  const convertAmount = (amount: number, fromCurrency: string, toCurrency: string): number => {
+    if (fromCurrency === toCurrency || !toCurrency) {
+      return amount;
+    }
+
+    const fromCurrencyData = currencies.find((c) => c.code === fromCurrency);
+    const toCurrencyData = currencies.find((c) => c.code === toCurrency);
+
+    if (!fromCurrencyData || !toCurrencyData) {
+      return amount;
+    }
+
+    // Convert: fromCurrency -> base -> toCurrency
+    // First convert to base currency
+    let baseAmount = amount;
+    if (fromCurrencyData.exchange_rate > 0) {
+      baseAmount = amount / fromCurrencyData.exchange_rate;
+    }
+
+    // Then convert to target currency
+    if (toCurrencyData.exchange_rate > 0) {
+      return baseAmount * toCurrencyData.exchange_rate;
+    }
+
+    return baseAmount;
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
+    const displayCurrency = selectedCurrency || currency || 'IDR';
+    const convertedAmount = convertAmount(amount, currency, displayCurrency);
+    
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: currency || 'IDR',
+      currency: displayCurrency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(convertedAmount);
+  };
+
+  const handleCurrencyChange = (currencyCode: string) => {
+    setSelectedCurrency(currencyCode);
+    localStorage.setItem('reportsDisplayCurrency', currencyCode);
   };
 
   const formatPercent = (value: number) => {
@@ -214,6 +288,19 @@ export default function ReportsPage() {
                 </option>
               ))}
             </select>
+            {currencies.length > 0 && (
+              <select
+                value={selectedCurrency}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
+              >
+                {currencies.map((currency) => (
+                  <option key={currency.id} value={currency.code}>
+                    {currency.code} {currency.is_default && '(Default)'}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -380,9 +467,9 @@ export default function ReportsPage() {
                     </div>
                     <div className="text-right">
                       <span className="text-sm text-gray-600">
-                        {formatCurrency(budget.spent, budget.currency?.code || reportsData.summary.currency)}
+                        {formatCurrency(budget.spent, reportsData.summary.currency)}
                         {' / '}
-                        {formatCurrency(budget.budgetAmount, budget.currency?.code || reportsData.summary.currency)}
+                        {formatCurrency(budget.budgetAmount, reportsData.summary.currency)}
                       </span>
                       {budget.isExceeded && (
                         <span className="ml-2 text-xs text-[#EF4444] font-semibold">({t.budget.exceeded})</span>
@@ -406,13 +493,13 @@ export default function ReportsPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      {t.budget.budget}: {formatCurrency(budget.budgetAmount, budget.currency?.code || reportsData.summary.currency)}
+                      {t.budget.budget}: {formatCurrency(budget.budgetAmount, reportsData.summary.currency)}
                     </span>
                     <span className="text-gray-600">
-                      {t.budget.actual}: {formatCurrency(budget.spent, budget.currency?.code || reportsData.summary.currency)}
+                      {t.budget.actual}: {formatCurrency(budget.spent, reportsData.summary.currency)}
                     </span>
                     <span className={budget.remaining < 0 ? 'text-[#EF4444] font-semibold' : 'text-gray-600'}>
-                      {t.budget.remaining}: {formatCurrency(budget.remaining, budget.currency?.code || reportsData.summary.currency)}
+                      {t.budget.remaining}: {formatCurrency(budget.remaining, reportsData.summary.currency)}
                     </span>
                   </div>
                 </div>

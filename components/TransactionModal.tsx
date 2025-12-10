@@ -121,6 +121,7 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
           text: t.transactionModal.categoryRequired,
         });
         setError(t.transactionModal.categoryRequired);
+        setLoading(false);
         return;
       }
 
@@ -131,6 +132,7 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
           text: t.transactionModal.currencyRequired,
         });
         setError(t.transactionModal.currencyRequired);
+        setLoading(false);
         return;
       }
 
