@@ -138,9 +138,14 @@ export default function ProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
+  return (
+    <div className="min-h-screen bg-[#F9FAFB]">
+      {/* Decorative background elements - soft and subtle */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#2563EB]/3 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#10B981]/3 rounded-full blur-3xl"></div>
+      </div>
+      <Navbar />
         <div className="flex items-center justify-center h-screen">
           <div className="text-gray-600">Loading...</div>
         </div>
@@ -158,13 +163,13 @@ export default function ProfilePage() {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-red-50 border border-red-200 text-[#EF4444] px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-green-50 border border-green-200 text-[#10B981] px-4 py-3 rounded-lg">
             {success}
           </div>
         )}
@@ -199,7 +204,7 @@ export default function ProfilePage() {
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                   placeholder="Masukkan nama lengkap"
                 />
               </div>
@@ -224,7 +229,7 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
@@ -251,7 +256,7 @@ export default function ProfilePage() {
                   name="currentPassword"
                   type="password"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                 />
               </div>
 
@@ -268,7 +273,7 @@ export default function ProfilePage() {
                   type="password"
                   required
                   minLength={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                 />
                 <p className="mt-1 text-xs text-gray-500">Minimal 6 karakter</p>
               </div>
@@ -286,7 +291,7 @@ export default function ProfilePage() {
                   type="password"
                   required
                   minLength={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                 />
               </div>
             </div>
@@ -294,7 +299,7 @@ export default function ProfilePage() {
             <div className="mt-6">
               <button
                 type="submit"
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-medium"
+                className="px-6 py-2 bg-[#10B981] text-white rounded-md hover:bg-[#059669] transition font-medium"
               >
                 Ubah Password
               </button>

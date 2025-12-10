@@ -3,6 +3,31 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Modern Financial Color Palette (Option 1) */
+  --primary: #2563EB;        /* Blue-600 - Main actions */
+  --primary-dark: #1E40AF;   /* Blue-800 - Hover states */
+  --primary-light: #3B82F6; /* Blue-500 - Secondary actions */
+  
+  --income: #10B981;         /* Emerald-500 - Income, positive */
+  --income-dark: #059669;    /* Emerald-600 - Income hover */
+  --outcome: #EF4444;        /* Red-500 - Expenses, negative */
+  --outcome-dark: #DC2626;   /* Red-600 - Outcome hover */
+  
+  --warning: #F59E0B;        /* Amber-500 - Alerts, warnings */
+  --success: #10B981;        /* Emerald-500 - Success */
+  --info: #3B82F6;           /* Blue-500 - Information */
+  
+  --bg-primary: #F9FAFB;     /* Gray-50 - Page background */
+  --bg-card: #FFFFFF;        /* White - Cards, modals */
+  --text-primary: #111827;   /* Gray-900 - Main text */
+  --text-secondary: #6B7280; /* Gray-500 - Secondary text */
+  --border: #E5E7EB;         /* Gray-200 - Borders */
+  
+  /* Budget Status Colors */
+  --budget-safe: #10B981;    /* Green - < 80% */
+  --budget-warning: #F59E0B; /* Amber - 80-100% */
+  --budget-exceeded: #EF4444; /* Red - > 100% */
 }
 
 @theme inline {
@@ -16,11 +41,16 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --bg-primary: #111827;
+    --bg-card: #1F2937;
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --border: #374151;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

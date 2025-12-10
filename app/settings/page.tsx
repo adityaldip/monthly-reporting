@@ -5,12 +5,16 @@ import Swal from 'sweetalert2';
 import Navbar from '@/components/Navbar';
 import { Currency, CurrencyCreate } from '@/types/currency';
 import { Category, CategoryCreate } from '@/types/category';
+import { Budget, BudgetCreate } from '@/types/budget';
 import { WORLDWIDE_CURRENCIES, getCurrencyByCode } from '@/lib/currencies';
+import { useI18n } from '@/lib/i18n/context';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'currencies' | 'categories'>('currencies');
+  const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState<'currencies' | 'categories' | 'budgets'>('currencies');
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingRates, setUpdatingRates] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +42,25 @@ export default function SettingsPage() {
     is_default: false,
   });
 
+  // Budget form
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [budgetForm, setBudgetForm] = useState<{
+    category_id: string;
+    year: number;
+    month: number;
+    amount: string; // Use string to allow empty input
+    currency_id: string;
+    alert_threshold: string; // Use string to allow empty input
+  }>({
+    category_id: '',
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    amount: '',
+    currency_id: '',
+    alert_threshold: '80',
+  });
+
   useEffect(() => {
     loadData();
   }, [activeTab]);
@@ -62,7 +85,7 @@ export default function SettingsPage() {
           return;
         }
         setCurrencies(data.currencies || []);
-      } else {
+      } else if (activeTab === 'categories') {
         const response = await fetch('/api/categories', {
           credentials: 'include',
         });
@@ -78,6 +101,32 @@ export default function SettingsPage() {
           return;
         }
         setCategories(data.categories || []);
+      } else if (activeTab === 'budgets') {
+        const now = new Date();
+        const response = await fetch(
+          `/api/budgets?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+          { credentials: 'include' }
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          const errorMsg = data.error || 'Gagal memuat budgets';
+          setError(errorMsg);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: errorMsg,
+          });
+          return;
+        }
+        setBudgets(data.budgets || []);
+        // Also load categories and currencies for dropdowns
+        const [catRes, currRes] = await Promise.all([
+          fetch('/api/categories?type=outcome', { credentials: 'include' }),
+          fetch('/api/currencies', { credentials: 'include' }),
+        ]);
+        const [catData, currData] = await Promise.all([catRes.json(), currRes.json()]);
+        if (catRes.ok) setCategories(catData.categories || []);
+        if (currRes.ok) setCurrencies(currData.currencies || []);
       }
     } catch (err) {
       const errorMsg = 'Terjadi kesalahan saat memuat data';
@@ -406,8 +455,168 @@ export default function SettingsPage() {
     setShowCategoryForm(true);
   };
 
+  // Budget functions
+  const handleBudgetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    // Validate and parse amount
+    const amountValue = parseFloat(budgetForm.amount);
+    if (!amountValue || amountValue <= 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: 'Amount harus lebih dari 0',
+      });
+      return;
+    }
+
+    // Parse alert threshold (default to 80 if empty)
+    const alertThresholdValue = budgetForm.alert_threshold 
+      ? parseFloat(budgetForm.alert_threshold) 
+      : 80;
+
+    if (alertThresholdValue < 0 || alertThresholdValue > 100) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: 'Alert threshold harus antara 0 dan 100',
+      });
+      return;
+    }
+
+    try {
+      const url = editingBudget
+        ? `/api/budgets/${editingBudget.id}`
+        : '/api/budgets';
+      const method = editingBudget ? 'PUT' : 'POST';
+
+      // Prepare payload with parsed values
+      const payload = {
+        category_id: budgetForm.category_id,
+        year: budgetForm.year,
+        month: budgetForm.month,
+        amount: amountValue,
+        currency_id: budgetForm.currency_id,
+        alert_threshold: alertThresholdValue,
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: data.error || 'Gagal menyimpan budget',
+        });
+        return;
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: data.message || 'Budget berhasil disimpan',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      setShowBudgetForm(false);
+      setEditingBudget(null);
+      setBudgetForm({
+        category_id: '',
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        amount: '',
+        currency_id: '',
+        alert_threshold: '80',
+      });
+      loadData();
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: 'Terjadi kesalahan saat menyimpan budget',
+      });
+    }
+  };
+
+  const openEditBudget = (budget: Budget) => {
+    setEditingBudget(budget);
+    setBudgetForm({
+      category_id: budget.category_id,
+      year: budget.year,
+      month: budget.month,
+      amount: budget.amount.toString(),
+      currency_id: budget.currency_id,
+      alert_threshold: budget.alert_threshold.toString(),
+    });
+    setShowBudgetForm(true);
+  };
+
+  const handleDeleteBudget = async (id: string) => {
+    const result = await Swal.fire({
+      title: t.budget.confirmDelete,
+      text: t.budget.confirmDeleteBudget,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: t.common.delete,
+      cancelButtonText: t.common.cancel,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await fetch(`/api/budgets/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: data.error || 'Gagal menghapus budget',
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil!',
+          text: data.message || 'Budget berhasil dihapus',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        loadData();
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'Terjadi kesalahan saat menghapus budget',
+        });
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F9FAFB]">
+      {/* Decorative background elements - soft and subtle */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#2563EB]/3 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#10B981]/3 rounded-full blur-3xl"></div>
+      </div>
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -416,13 +625,13 @@ export default function SettingsPage() {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-red-50 border border-red-200 text-[#EF4444] px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-green-50 border border-green-200 text-[#10B981] px-4 py-3 rounded-lg">
             {success}
           </div>
         )}
@@ -434,7 +643,7 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('currencies')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'currencies'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-[#2563EB] text-[#2563EB]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -444,11 +653,21 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('categories')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'categories'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-[#2563EB] text-[#2563EB]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               Categories
+            </button>
+            <button
+              onClick={() => setActiveTab('budgets')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'budgets'
+                  ? 'border-[#2563EB] text-[#2563EB]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {t.budget.title}
             </button>
           </nav>
         </div>
@@ -462,7 +681,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleUpdateExchangeRates}
                   disabled={updatingRates || currencies.length === 0}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[#10B981] text-white rounded-md hover:bg-[#059669] transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updatingRates ? 'Updating...' : '🔄 Update Exchange Rates'}
                 </button>
@@ -478,7 +697,7 @@ export default function SettingsPage() {
                       exchange_rate: 1.0,
                     });
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium text-sm"
+                  className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium text-sm"
                 >
                   + Tambah Currency
                 </button>
@@ -539,7 +758,7 @@ export default function SettingsPage() {
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               {currency.is_default ? (
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-[#059669]">
                                   Default
                                 </span>
                               ) : (
@@ -549,13 +768,13 @@ export default function SettingsPage() {
                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => openEditCurrency(currency)}
-                                className="text-blue-600 hover:text-blue-900 mr-4"
+                                className="text-[#2563EB] hover:text-[#1E40AF] mr-4"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleDeleteCurrency(currency.id)}
-                                className="text-red-600 hover:text-red-900"
+                                className="text-[#EF4444] hover:text-[#DC2626]"
                               >
                                 Hapus
                               </button>
@@ -588,7 +807,7 @@ export default function SettingsPage() {
                     is_default: false,
                   });
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium text-sm"
+                className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium text-sm"
               >
                 + Tambah Category
               </button>
@@ -635,14 +854,14 @@ export default function SettingsPage() {
                               <span
                                 className={`px-2 py-1 text-xs font-semibold rounded ${
                                   category.type === 'income'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
+                                    ? 'bg-green-100 text-[#059669]'
+                                    : 'bg-red-100 text-[#DC2626]'
                                 }`}
                               >
                                 {category.type === 'income' ? 'Income' : 'Outcome'}
                               </span>
                               {category.is_default && (
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-[#2563EB]">
                                   Default
                                 </span>
                               )}
@@ -658,13 +877,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => openEditCategory(category)}
-                              className="text-blue-600 hover:text-blue-900 text-sm"
+                              className="text-[#2563EB] hover:text-[#1E40AF] text-sm"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDeleteCategory(category.id)}
-                              className="text-red-600 hover:text-red-900 text-sm"
+                              className="text-[#EF4444] hover:text-[#DC2626] text-sm"
                             >
                               Hapus
                             </button>
@@ -701,7 +920,7 @@ export default function SettingsPage() {
                   <form onSubmit={handleCurrencySubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Currency <span className="text-red-500">*</span>
+                        Currency <span className="text-[#EF4444]">*</span>
                       </label>
                       {editingCurrency ? (
                         <input
@@ -715,7 +934,7 @@ export default function SettingsPage() {
                           value={currencyForm.code}
                           onChange={(e) => handleCurrencyCodeChange(e.target.value)}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         >
                           <option value="">Pilih Currency</option>
                           {WORLDWIDE_CURRENCIES.map((currency) => {
@@ -741,7 +960,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Name <span className="text-red-500">*</span>
+                        Name <span className="text-[#EF4444]">*</span>
                       </label>
                       <input
                         type="text"
@@ -750,7 +969,7 @@ export default function SettingsPage() {
                           setCurrencyForm({ ...currencyForm, name: e.target.value })
                         }
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         placeholder="US Dollar"
                       />
                     </div>
@@ -764,7 +983,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setCurrencyForm({ ...currencyForm, symbol: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         placeholder="$"
                       />
                     </div>
@@ -782,7 +1001,7 @@ export default function SettingsPage() {
                             exchange_rate: parseFloat(e.target.value) || 1.0,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                       />
                     </div>
                     <div className="flex items-center">
@@ -793,7 +1012,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setCurrencyForm({ ...currencyForm, is_default: e.target.checked })
                         }
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
                       />
                       <label htmlFor="is_default" className="ml-2 block text-sm text-gray-900">
                         Set as default currency
@@ -846,7 +1065,7 @@ export default function SettingsPage() {
                   <form onSubmit={handleCategorySubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Type <span className="text-red-500">*</span>
+                        Type <span className="text-[#EF4444]">*</span>
                       </label>
                       <select
                         value={categoryForm.type}
@@ -857,7 +1076,7 @@ export default function SettingsPage() {
                           })
                         }
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                       >
                         <option value="income">Income</option>
                         <option value="outcome">Outcome</option>
@@ -865,7 +1084,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Name <span className="text-red-500">*</span>
+                        Name <span className="text-[#EF4444]">*</span>
                       </label>
                       <input
                         type="text"
@@ -874,7 +1093,7 @@ export default function SettingsPage() {
                           setCategoryForm({ ...categoryForm, name: e.target.value })
                         }
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         placeholder="Category name"
                       />
                     </div>
@@ -888,7 +1107,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setCategoryForm({ ...categoryForm, icon: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                         placeholder="💰"
                       />
                     </div>
@@ -913,7 +1132,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setCategoryForm({ ...categoryForm, is_default: e.target.checked })
                         }
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
                       />
                       <label htmlFor="is_default_cat" className="ml-2 block text-sm text-gray-900">
                         Set as default category
@@ -939,6 +1158,291 @@ export default function SettingsPage() {
                     </div>
                   </form>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Budgets Tab */}
+        {activeTab === 'budgets' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">{t.budget.title}</h2>
+              <button
+                onClick={() => {
+                  setEditingBudget(null);
+                  const defaultCurrency = currencies.find((c) => c.is_default);
+                  setBudgetForm({
+                    category_id: '',
+                    year: new Date().getFullYear(),
+                    month: new Date().getMonth() + 1,
+                    amount: '',
+                    currency_id: defaultCurrency?.id || '',
+                    alert_threshold: '80',
+                  });
+                  setShowBudgetForm(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              >
+                {t.budget.addBudget}
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="p-8 text-center text-gray-500">{t.common.loading}</div>
+            ) : budgets.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">{t.budget.noBudgets}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.budget.category}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.budget.year}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.budget.month}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.budget.budget}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.budget.spent}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.budget.remaining}</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t.budget.progress}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.settings.actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {budgets.map((budget) => (
+                      <tr key={budget.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span>{budget.category?.icon || ''}</span>
+                            <span className="text-sm text-gray-900">{budget.category?.name || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{budget.year}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(2000, budget.month - 1).toLocaleString('default', { month: 'long' })}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: budget.currency?.code || 'IDR',
+                            minimumFractionDigits: 0,
+                          }).format(budget.amount)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right">
+                          <span className={budget.isExceeded ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: budget.currency?.code || 'IDR',
+                              minimumFractionDigits: 0,
+                            }).format(budget.spent || 0)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right">
+                          <span className={budget.remaining && budget.remaining < 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: budget.currency?.code || 'IDR',
+                              minimumFractionDigits: 0,
+                            }).format(budget.remaining || 0)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full ${
+                                budget.isExceeded
+                                  ? 'bg-red-600'
+                                  : budget.isNearLimit
+                                  ? 'bg-yellow-500'
+                                  : 'bg-green-500'
+                              }`}
+                              style={{ width: `${Math.min(budget.percentage || 0, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 mt-1 block">
+                            {budget.percentage?.toFixed(1)}%
+                            {budget.isExceeded && ` (${t.budget.exceeded})`}
+                            {budget.isNearLimit && !budget.isExceeded && ` (${t.budget.nearLimit})`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openEditBudget(budget)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              {t.common.edit}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBudget(budget.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              {t.common.delete}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Budget Form Modal */}
+        {showBudgetForm && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
+              onClick={() => {
+                setShowBudgetForm(false);
+                setEditingBudget(null);
+              }}
+            />
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div
+                className="relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {editingBudget ? t.budget.editBudget : t.budget.addBudget}
+                  </h3>
+                </div>
+                <form onSubmit={handleBudgetSubmit} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      {t.budget.category} <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={budgetForm.category_id}
+                      onChange={(e) => setBudgetForm({ ...budgetForm, category_id: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                    >
+                      <option value="">{t.budget.selectCategory}</option>
+                      {categories
+                        .filter((cat) => cat.type === 'outcome')
+                        .map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.icon} {cat.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.budget.year} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={budgetForm.year}
+                        onChange={(e) => setBudgetForm({ ...budgetForm, year: parseInt(e.target.value) })}
+                        required
+                        min="2020"
+                        max="2100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.budget.month} <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={budgetForm.month}
+                        onChange={(e) => setBudgetForm({ ...budgetForm, month: parseInt(e.target.value) })}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                          <option key={m} value={m}>
+                            {new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      {t.budget.amount} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={budgetForm.amount}
+                      onChange={(e) => {
+                        // Allow only numbers and decimal point
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        // Prevent multiple decimal points
+                        const parts = value.split('.');
+                        const filteredValue = parts.length > 2 
+                          ? parts[0] + '.' + parts.slice(1).join('')
+                          : value;
+                        setBudgetForm({ ...budgetForm, amount: filteredValue });
+                      }}
+                      required
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      {t.budget.currency} <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={budgetForm.currency_id}
+                      onChange={(e) => setBudgetForm({ ...budgetForm, currency_id: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                    >
+                      <option value="">{t.budget.selectCategory}</option>
+                      {currencies.map((curr) => (
+                        <option key={curr.id} value={curr.id}>
+                          {curr.code} - {curr.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      {t.budget.alertThreshold}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={budgetForm.alert_threshold}
+                      onChange={(e) => {
+                        // Allow only numbers
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        // Limit to 0-100
+                        const numValue = value === '' ? '' : Math.min(100, Math.max(0, parseInt(value) || 0)).toString();
+                        setBudgetForm({ ...budgetForm, alert_threshold: numValue });
+                      }}
+                      placeholder="80"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">{t.budget.alertThresholdDesc}</p>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBudgetForm(false);
+                        setEditingBudget(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      {t.common.cancel}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                      {t.common.save}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

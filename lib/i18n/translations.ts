@@ -71,6 +71,42 @@ export interface Translations {
     amountOriginal: string;
     amountConverted: string;
     currency: string;
+    search: string;
+    searchPlaceholder: string;
+    filter: string;
+    sortBy: string;
+    sortDate: string;
+    sortAmount: string;
+    sortCategory: string;
+    sortAsc: string;
+    sortDesc: string;
+    dateRange: string;
+    dateFrom: string;
+    dateTo: string;
+    amountRange: string;
+    amountMin: string;
+    amountMax: string;
+    selectCategory: string;
+    selectCurrency: string;
+    actions: string;
+    edit: string;
+    delete: string;
+    bulkDelete: string;
+    selectAll: string;
+    selected: string;
+    confirmDelete: string;
+    confirmBulkDelete: string;
+    deleteSuccess: string;
+    editTransaction: string;
+    recurringTransactions: string;
+    addRecurring: string;
+    frequency: string;
+    weekly: string;
+    monthly: string;
+    nextDate: string;
+    endDate: string;
+    active: string;
+    inactive: string;
   };
 
   // Transaction Modal
@@ -183,6 +219,36 @@ export interface Translations {
     noData: string;
     loading: string;
   };
+
+  // Budget
+  budget: {
+    title: string;
+    subtitle: string;
+    addBudget: string;
+    editBudget: string;
+    deleteBudget: string;
+    category: string;
+    year: string;
+    month: string;
+    amount: string;
+    currency: string;
+    alertThreshold: string;
+    alertThresholdDesc: string;
+    spent: string;
+    remaining: string;
+    budget: string;
+    actual: string;
+    exceeded: string;
+    nearLimit: string;
+    noBudgets: string;
+    selectCategory: string;
+    selectYear: string;
+    selectMonth: string;
+    confirmDelete: string;
+    confirmDeleteBudget: string;
+    budgetVsActual: string;
+    progress: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -250,6 +316,42 @@ export const translations: Record<Language, Translations> = {
       amountOriginal: 'Jumlah (Original)',
       amountConverted: 'Jumlah',
       currency: 'Currency',
+      search: 'Cari',
+      searchPlaceholder: 'Cari transaksi...',
+      filter: 'Filter',
+      sortBy: 'Urutkan',
+      sortDate: 'Tanggal',
+      sortAmount: 'Jumlah',
+      sortCategory: 'Kategori',
+      sortAsc: 'Naik',
+      sortDesc: 'Turun',
+      dateRange: 'Rentang Tanggal',
+      dateFrom: 'Dari',
+      dateTo: 'Sampai',
+      amountRange: 'Rentang Jumlah',
+      amountMin: 'Min',
+      amountMax: 'Max',
+      selectCategory: 'Pilih Kategori',
+      selectCurrency: 'Pilih Currency',
+      actions: 'Aksi',
+      edit: 'Edit',
+      delete: 'Hapus',
+      bulkDelete: 'Hapus Terpilih',
+      selectAll: 'Pilih Semua',
+      selected: 'terpilih',
+      confirmDelete: 'Apakah Anda yakin ingin menghapus transaksi ini?',
+      confirmBulkDelete: 'Apakah Anda yakin ingin menghapus {count} transaksi yang dipilih?',
+      deleteSuccess: 'Transaksi berhasil dihapus',
+      editTransaction: 'Edit Transaksi',
+      recurringTransactions: 'Transaksi Berulang',
+      addRecurring: 'Tambah Transaksi Berulang',
+      frequency: 'Frekuensi',
+      weekly: 'Mingguan',
+      monthly: 'Bulanan',
+      nextDate: 'Tanggal Berikutnya',
+      endDate: 'Tanggal Berakhir',
+      active: 'Aktif',
+      inactive: 'Tidak Aktif',
     },
     transactionModal: {
       addIncome: 'Tambah Pemasukan',
@@ -328,6 +430,34 @@ export const translations: Record<Language, Translations> = {
       registerSuccess: 'Registrasi berhasil',
       registerError: 'Registrasi gagal',
       logout: 'Keluar',
+    },
+    budget: {
+      title: 'Budget',
+      subtitle: 'Kelola budget per kategori',
+      addBudget: 'Tambah Budget',
+      editBudget: 'Edit Budget',
+      deleteBudget: 'Hapus Budget',
+      category: 'Kategori',
+      year: 'Tahun',
+      month: 'Bulan',
+      amount: 'Jumlah',
+      currency: 'Mata Uang',
+      alertThreshold: 'Threshold Alert (%)',
+      alertThresholdDesc: 'Notifikasi akan muncul saat pengeluaran mencapai threshold ini',
+      spent: 'Terpakai',
+      remaining: 'Tersisa',
+      budget: 'Budget',
+      actual: 'Aktual',
+      exceeded: 'Melebihi Budget',
+      nearLimit: 'Mendekati Limit',
+      noBudgets: 'Belum ada budget. Tambahkan budget untuk kategori outcome.',
+      selectCategory: 'Pilih Kategori',
+      selectYear: 'Pilih Tahun',
+      selectMonth: 'Pilih Bulan',
+      confirmDelete: 'Apakah Anda yakin ingin menghapus budget ini?',
+      confirmDeleteBudget: 'Apakah Anda yakin ingin menghapus budget ini?',
+      budgetVsActual: 'Budget vs Aktual',
+      progress: 'Progress',
     },
     reports: {
       title: 'Laporan',
@@ -417,6 +547,42 @@ export const translations: Record<Language, Translations> = {
       amountOriginal: 'Amount (Original)',
       amountConverted: 'Amount',
       currency: 'Currency',
+      search: 'Search',
+      searchPlaceholder: 'Search transactions...',
+      filter: 'Filter',
+      sortBy: 'Sort By',
+      sortDate: 'Date',
+      sortAmount: 'Amount',
+      sortCategory: 'Category',
+      sortAsc: 'Ascending',
+      sortDesc: 'Descending',
+      dateRange: 'Date Range',
+      dateFrom: 'From',
+      dateTo: 'To',
+      amountRange: 'Amount Range',
+      amountMin: 'Min',
+      amountMax: 'Max',
+      selectCategory: 'Select Category',
+      selectCurrency: 'Select Currency',
+      actions: 'Actions',
+      edit: 'Edit',
+      delete: 'Delete',
+      bulkDelete: 'Delete Selected',
+      selectAll: 'Select All',
+      selected: 'selected',
+      confirmDelete: 'Are you sure you want to delete this transaction?',
+      confirmBulkDelete: 'Are you sure you want to delete {count} selected transactions?',
+      deleteSuccess: 'Transaction deleted successfully',
+      editTransaction: 'Edit Transaction',
+      recurringTransactions: 'Recurring Transactions',
+      addRecurring: 'Add Recurring Transaction',
+      frequency: 'Frequency',
+      weekly: 'Weekly',
+      monthly: 'Monthly',
+      nextDate: 'Next Date',
+      endDate: 'End Date',
+      active: 'Active',
+      inactive: 'Inactive',
     },
     transactionModal: {
       addIncome: 'Add Income',
@@ -518,6 +684,34 @@ export const translations: Record<Language, Translations> = {
       comparedToPrevious: 'Compared to previous period',
       noData: 'No data for this period',
       loading: 'Loading data...',
+    },
+    budget: {
+      title: 'Budget',
+      subtitle: 'Manage budget per category',
+      addBudget: 'Add Budget',
+      editBudget: 'Edit Budget',
+      deleteBudget: 'Delete Budget',
+      category: 'Category',
+      year: 'Year',
+      month: 'Month',
+      amount: 'Amount',
+      currency: 'Currency',
+      alertThreshold: 'Alert Threshold (%)',
+      alertThresholdDesc: 'Notification will appear when spending reaches this threshold',
+      spent: 'Spent',
+      remaining: 'Remaining',
+      budget: 'Budget',
+      actual: 'Actual',
+      exceeded: 'Exceeded Budget',
+      nearLimit: 'Near Limit',
+      noBudgets: 'No budgets yet. Add budgets for outcome categories.',
+      selectCategory: 'Select Category',
+      selectYear: 'Select Year',
+      selectMonth: 'Select Month',
+      confirmDelete: 'Are you sure you want to delete this budget?',
+      confirmDeleteBudget: 'Are you sure you want to delete this budget?',
+      budgetVsActual: 'Budget vs Actual',
+      progress: 'Progress',
     },
   },
 };

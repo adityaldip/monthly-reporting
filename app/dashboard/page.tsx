@@ -11,6 +11,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [budgetsLoading, setBudgetsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalIncome: 0,
     totalOutcome: 0,
@@ -23,6 +26,7 @@ export default function DashboardPage() {
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
+  const [budgets, setBudgets] = useState<any[]>([]);
 
   useEffect(() => {
     // Load saved currency preference from localStorage
@@ -34,12 +38,23 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Reload stats when currency changes (after currencies are loaded)
-    if (selectedCurrency && currencies.length > 0) {
+    // Reload stats when currency changes
+    // Don't wait for currencies to load - use saved currency or proceed anyway
+    if (selectedCurrency) {
       loadDashboardData(selectedCurrency);
     } else if (currencies.length > 0 && !selectedCurrency) {
       // If currencies loaded but no currency selected yet, wait for loadCurrencies to set it
       // This will be handled by loadCurrencies setting selectedCurrency
+    } else if (!selectedCurrency && currencies.length === 0) {
+      // If no currency selected and currencies haven't loaded, try with default or empty
+      // This prevents infinite loading
+      const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
+      if (savedCurrency) {
+        setSelectedCurrency(savedCurrency);
+      } else {
+        // Load dashboard with default currency (will be handled by API)
+        loadDashboardData();
+      }
     }
   }, [selectedCurrency, currencies.length]);
 
@@ -48,25 +63,32 @@ export default function DashboardPage() {
       const response = await fetch('/api/currencies', {
         credentials: 'include',
       });
+      
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        router.push('/login');
+        return;
+      }
+      
       const data = await response.json();
       if (response.ok) {
         setCurrencies(data.currencies || []);
         // If no saved currency, use default currency
         const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-        if (!savedCurrency && data.currencies) {
+        if (!savedCurrency && data.currencies && data.currencies.length > 0) {
           const defaultCurrency = data.currencies.find((c: any) => c.is_default);
           if (defaultCurrency) {
             setSelectedCurrency(defaultCurrency.code);
             localStorage.setItem('dashboardDisplayCurrency', defaultCurrency.code);
-          } else if (data.currencies.length > 0) {
+          } else {
             // Fallback to first currency if no default
             setSelectedCurrency(data.currencies[0].code);
             localStorage.setItem('dashboardDisplayCurrency', data.currencies[0].code);
           }
-        } else if (savedCurrency) {
+        } else if (savedCurrency && data.currencies && data.currencies.length > 0) {
           // Verify saved currency exists in user's currencies
           const currencyExists = data.currencies.some((c: any) => c.code === savedCurrency);
-          if (!currencyExists && data.currencies.length > 0) {
+          if (!currencyExists) {
             // If saved currency doesn't exist, use default or first
             const defaultCurrency = data.currencies.find((c: any) => c.is_default);
             const currencyToUse = defaultCurrency || data.currencies[0];
@@ -77,64 +99,134 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error('Failed to load currencies:', err);
+      // If currencies fail to load, still try to load dashboard with saved currency
+      const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
+      if (savedCurrency) {
+        setSelectedCurrency(savedCurrency);
+      }
     }
   };
 
   const loadDashboardData = async (currency?: string) => {
     setLoading(true);
+    setStatsLoading(true);
+    setTransactionsLoading(true);
+    setBudgetsLoading(true);
+    
     try {
       // Use provided currency or selectedCurrency
       const currencyToUse = currency || selectedCurrency;
       
-      // Load stats with selected currency
+      // Load all data in parallel for faster loading
       const statsUrl = currencyToUse
         ? `/api/transactions/stats?displayCurrency=${currencyToUse}`
         : '/api/transactions/stats';
       
-      const statsResponse = await fetch(statsUrl, {
-        credentials: 'include',
-      });
-      const statsData = await statsResponse.json();
-      if (statsResponse.ok) {
-        setStats({
-          totalIncome: statsData.totalIncome || 0,
-          totalOutcome: statsData.totalOutcome || 0,
-          balance: statsData.balance || 0,
-          currency: statsData.currency || 'IDR',
-          baseCurrency: statsData.baseCurrency || 'IDR',
-        });
-      }
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      
+      // Parallel API calls - each resolves independently for progressive loading
+      const promises = [
+        fetch(statsUrl, { credentials: 'include' })
+          .then(async (response) => {
+            if (response.status === 401) {
+              router.push('/login');
+              setStatsLoading(false);
+              return;
+            }
+            const data = await response.json();
+            if (response.ok) {
+              setStats({
+                totalIncome: data.totalIncome || 0,
+                totalOutcome: data.totalOutcome || 0,
+                balance: data.balance || 0,
+                currency: data.currency || 'IDR',
+                baseCurrency: data.baseCurrency || 'IDR',
+              });
+            }
+            setStatsLoading(false);
+          })
+          .catch((err) => {
+            console.error('Failed to load stats:', err);
+            setStatsLoading(false);
+          }),
+        
+        fetch('/api/transactions?limit=5', { credentials: 'include' })
+          .then(async (response) => {
+            if (response.status === 401) {
+              router.push('/login');
+              setTransactionsLoading(false);
+              return;
+            }
+            const data = await response.json();
+            if (response.ok) {
+              setRecentTransactions(data.transactions || []);
+            }
+            setTransactionsLoading(false);
+          })
+          .catch((err) => {
+            console.error('Failed to load transactions:', err);
+            setTransactionsLoading(false);
+          }),
+        
+        fetch(`/api/budgets?year=${currentYear}&month=${currentMonth}`, { credentials: 'include' })
+          .then(async (response) => {
+            if (response.status === 401) {
+              router.push('/login');
+              setBudgetsLoading(false);
+              return;
+            }
+            const data = await response.json();
+            if (response.ok) {
+              setBudgets(data.budgets || []);
+            }
+            setBudgetsLoading(false);
+          })
+          .catch((err) => {
+            console.error('Failed to load budgets:', err);
+            setBudgetsLoading(false);
+          })
+      ];
 
-      // Load recent transactions
-      const transactionsResponse = await fetch('/api/transactions?limit=5', {
-        credentials: 'include',
+      // Wait for all promises and ensure loading state is cleared
+      Promise.allSettled(promises).finally(() => {
+        setLoading(false);
       });
-      const transactionsData = await transactionsResponse.json();
-      if (transactionsResponse.ok) {
-        setRecentTransactions(transactionsData.transactions || []);
-      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
-    } finally {
       setLoading(false);
+      setStatsLoading(false);
+      setTransactionsLoading(false);
+      setBudgetsLoading(false);
     }
   };
 
-  if (loading) {
+  // Show initial loading only briefly - don't wait forever
+  // If loading takes too long, show content anyway (progressive loading)
+  if (loading && currencies.length === 0 && !selectedCurrency) {
+    // Only show full loading screen if we don't have currency preference
+    // This prevents infinite loading if currencies API fails
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F9FAFB]">
         <Navbar />
         <div className="flex items-center justify-center h-screen">
-          <div className="text-gray-600">Loading...</div>
+          <div className="text-gray-600">{t.common.loading}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F9FAFB]">
+      {/* Decorative background elements - soft and subtle */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#2563EB]/3 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#10B981]/3 rounded-full blur-3xl"></div>
+      </div>
+      
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{t.dashboard.title}</h1>
@@ -152,7 +244,7 @@ export default function DashboardPage() {
                 setSelectedCurrency(newCurrency);
                 localStorage.setItem('dashboardDisplayCurrency', newCurrency);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white/90 backdrop-blur-sm shadow-sm"
             >
               {currencies.map((curr) => (
                 <option key={curr.id} value={curr.code}>
@@ -165,7 +257,11 @@ export default function DashboardPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+          {statsLoading ? (
+            <div className="col-span-3 text-center text-gray-500 py-8">{t.common.loading}</div>
+          ) : (
+            <>
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#10B981] hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{t.dashboard.totalIncome}</p>
@@ -180,7 +276,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-green-100 rounded-full p-3">
                 <svg
-                  className="w-6 h-6 text-green-600"
+                  className="w-6 h-6 text-[#10B981]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -196,7 +292,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#EF4444] hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{t.dashboard.totalOutcome}</p>
@@ -211,7 +307,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-red-100 rounded-full p-3">
                 <svg
-                  className="w-6 h-6 text-red-600"
+                  className="w-6 h-6 text-[#EF4444]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -227,13 +323,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#2563EB] hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{t.dashboard.balance}</p>
                 <p
                   className={`text-2xl font-bold mt-2 ${
-                    stats.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                    stats.balance >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
                   }`}
                 >
                   {new Intl.NumberFormat('id-ID', {
@@ -261,10 +357,12 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8 hover:shadow-xl transition-shadow">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.dashboard.quickActions}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
@@ -272,7 +370,7 @@ export default function DashboardPage() {
                 setModalType('income');
                 setIsModalOpen(true);
               }}
-              className="flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+              className="flex items-center justify-center px-6 py-3 bg-[#10B981] text-white rounded-lg hover:bg-[#059669] transition font-medium"
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -294,7 +392,7 @@ export default function DashboardPage() {
                 setModalType('outcome');
                 setIsModalOpen(true);
               }}
-              className="flex items-center justify-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
+              className="flex items-center justify-center px-6 py-3 bg-[#EF4444] text-white rounded-lg hover:bg-[#DC2626] transition font-medium"
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -314,8 +412,88 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Transactions */}
-        <div className="bg-white rounded-lg shadow">
+        {/* Budget Progress */}
+        {budgets.length > 0 && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">{t.budget.title}</h2>
+              {(budgets.some((b: any) => b.isExceeded) || budgets.some((b: any) => b.isNearLimit)) && (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                  {budgets.filter((b: any) => b.isExceeded).length > 0 && `${budgets.filter((b: any) => b.isExceeded).length} ${t.budget.exceeded}`}
+                  {budgets.filter((b: any) => b.isExceeded).length > 0 && budgets.filter((b: any) => b.isNearLimit && !b.isExceeded).length > 0 && ' • '}
+                  {budgets.filter((b: any) => b.isNearLimit && !b.isExceeded).length > 0 && `${budgets.filter((b: any) => b.isNearLimit && !b.isExceeded).length} ${t.budget.nearLimit}`}
+                </span>
+              )}
+            </div>
+            <div className="space-y-4">
+              {budgets.slice(0, 5).map((budget: any) => (
+                <div key={budget.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{budget.category?.icon || ''}</span>
+                      <span className="font-medium text-gray-900">{budget.category?.name || '-'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-gray-600">
+                        {new Intl.NumberFormat('id-ID', {
+                          style: 'currency',
+                          currency: budget.currency?.code || 'IDR',
+                          minimumFractionDigits: 0,
+                        }).format(budget.spent || 0)}
+                        {' / '}
+                        {new Intl.NumberFormat('id-ID', {
+                          style: 'currency',
+                          currency: budget.currency?.code || 'IDR',
+                          minimumFractionDigits: 0,
+                        }).format(budget.amount)}
+                      </span>
+                      {budget.isExceeded && (
+                        <span className="ml-2 text-xs text-[#EF4444] font-semibold">({t.budget.exceeded})</span>
+                      )}
+                      {budget.isNearLimit && !budget.isExceeded && (
+                        <span className="ml-2 text-xs text-[#F59E0B] font-semibold">({t.budget.nearLimit})</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mb-1">
+                    <div
+                      className={`h-3 rounded-full transition-all ${
+                        budget.isExceeded
+                          ? 'bg-[#EF4444]'
+                          : budget.isNearLimit
+                          ? 'bg-[#F59E0B]'
+                          : 'bg-[#10B981]'
+                      }`}
+                      style={{ width: `${Math.min(budget.percentage || 0, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{budget.percentage?.toFixed(1)}% {t.budget.progress}</span>
+                    <span>
+                      {t.budget.remaining}:{' '}
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: budget.currency?.code || 'IDR',
+                        minimumFractionDigits: 0,
+                      }).format(budget.remaining || 0)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {budgets.length > 5 && (
+                <Link
+                  href="/settings?tab=budgets"
+                  className="block text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {t.dashboard.seeAll} Budgets
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+            {/* Recent Transactions */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-shadow">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">{t.dashboard.recentTransactions}</h2>
@@ -328,14 +506,16 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="p-6">
-            {recentTransactions.length === 0 ? (
+            {transactionsLoading ? (
+              <div className="text-center text-gray-500 py-8">{t.common.loading}</div>
+            ) : recentTransactions.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 {t.dashboard.noTransactions}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50/80 backdrop-blur-sm">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t.dashboard.date}
@@ -366,11 +546,11 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span
-                            className={`px-2 py-1 text-xs font-semibold rounded ${
-                              tx.type === 'income'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
+                          className={`px-2 py-1 text-xs font-semibold rounded ${
+                            tx.type === 'income'
+                              ? 'bg-green-100 text-[#059669]'
+                              : 'bg-red-100 text-[#DC2626]'
+                          }`}
                           >
                             {tx.category?.name || tx.category || '-'}
                           </span>
@@ -380,7 +560,7 @@ export default function DashboardPage() {
                         </td>
                         <td
                           className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-right ${
-                            tx.type === 'income' ? 'text-green-600' : 'text-red-600'
+                            tx.type === 'income' ? 'text-[#10B981]' : 'text-[#EF4444]'
                           }`}
                         >
                           {tx.type === 'income' ? '+' : '-'}

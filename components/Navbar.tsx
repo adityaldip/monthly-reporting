@@ -30,11 +30,11 @@ export default function Navbar() {
   };
 
   const isActive = (path: string) => {
-    return pathname === path ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600';
+    return pathname === path ? 'text-[#2563EB] font-semibold' : 'text-gray-700 hover:text-[#2563EB]';
   };
 
   return (
-    <nav className="bg-white shadow-md border-b border-gray-200">
+    <nav className="bg-white/95 backdrop-blur-sm shadow-md border-b border-gray-200/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
@@ -73,7 +73,7 @@ export default function Navbar() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
-              className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
               aria-label="Select language"
             >
               <option value="id">🇮🇩 ID</option>
@@ -88,7 +88,7 @@ export default function Navbar() {
             <button
               onClick={handleLogout}
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-red-600 transition disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-[#EF4444] transition disabled:opacity-50"
             >
               {loading ? t.common.loading : t.nav.logout}
             </button>

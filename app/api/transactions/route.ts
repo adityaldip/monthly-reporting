@@ -62,40 +62,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Enrich transactions with currency and category info
-    const enrichedTransactions = await Promise.all(
-      (transactions || []).map(async (tx: any) => {
-        const enriched: any = { ...tx };
+    // Optimize: Batch fetch all currencies and categories instead of N+1 queries
+    const currencyIds = [...new Set((transactions || []).filter(tx => tx.currency_id).map(tx => tx.currency_id))];
+    const categoryIds = [...new Set((transactions || []).filter(tx => tx.category_id).map(tx => tx.category_id))];
 
-        // Get currency info if currency_id exists
-        if (tx.currency_id) {
-          const { data: currencyData } = await supabase
-            .from('currencies')
-            .select('code, name, symbol')
-            .eq('id', tx.currency_id)
-            .single();
-          
-          if (currencyData) {
-            enriched.currency = currencyData;
-          }
-        }
+    // Batch fetch currencies
+    const currencyMap = new Map();
+    if (currencyIds.length > 0) {
+      const { data: currenciesData } = await supabase
+        .from('currencies')
+        .select('id, code, name, symbol')
+        .in('id', currencyIds)
+        .eq('user_id', user.id);
+      
+      currenciesData?.forEach((curr) => {
+        currencyMap.set(curr.id, curr);
+      });
+    }
 
-        // Get category info if category_id exists
-        if (tx.category_id) {
-          const { data: categoryData } = await supabase
-            .from('categories')
-            .select('name, icon, color')
-            .eq('id', tx.category_id)
-            .single();
-          
-          if (categoryData) {
-            enriched.category = categoryData;
-          }
-        }
+    // Batch fetch categories
+    const categoryMap = new Map();
+    if (categoryIds.length > 0) {
+      const { data: categoriesData } = await supabase
+        .from('categories')
+        .select('id, name, icon, color')
+        .in('id', categoryIds)
+        .eq('user_id', user.id);
+      
+      categoriesData?.forEach((cat) => {
+        categoryMap.set(cat.id, cat);
+      });
+    }
 
-        return enriched;
-      })
-    );
+    // Enrich transactions with currency and category info from maps
+    const enrichedTransactions = (transactions || []).map((tx: any) => {
+      const enriched: any = { ...tx };
+
+      // Get currency info from map
+      if (tx.currency_id && currencyMap.has(tx.currency_id)) {
+        enriched.currency = currencyMap.get(tx.currency_id);
+      }
+
+      // Get category info from map
+      if (tx.category_id && categoryMap.has(tx.category_id)) {
+        enriched.category = categoryMap.get(tx.category_id);
+      }
+
+      return enriched;
+    });
 
     return NextResponse.json({ transactions: enrichedTransactions }, { status: 200 });
   } catch (error) {

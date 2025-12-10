@@ -6,15 +6,18 @@ import { TransactionType } from '@/types/transaction';
 import { supabase } from '@/lib/supabase/client';
 import { Currency } from '@/types/currency';
 import { Category } from '@/types/category';
+import { useI18n } from '@/lib/i18n/context';
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   type?: TransactionType;
+  transactionId?: string; // For edit mode
   onSuccess?: () => void;
 }
 
-export default function TransactionModal({ isOpen, onClose, type, onSuccess }: TransactionModalProps) {
+export default function TransactionModal({ isOpen, onClose, type, transactionId, onSuccess }: TransactionModalProps) {
+  const { t } = useI18n();
   const [formData, setFormData] = useState({
     type: type || ('income' as TransactionType),
     amount: '',
@@ -30,29 +33,61 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
   const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
-    if (type && isOpen) {
-      setFormData(prev => ({ ...prev, type, category_id: '' }));
-      loadCategories();
-    }
-  }, [type]);
-
-  useEffect(() => {
     if (isOpen) {
       loadCurrencies();
-      loadCategories();
-      // Reset form when modal opens
-      const currentType = type || formData.type;
-      setFormData({
-        type: currentType,
-        amount: '',
-        currency_id: '',
-        description: '',
-        category_id: '',
-        date: new Date().toISOString().split('T')[0],
-      });
-      setError('');
+      
+      if (transactionId) {
+        // Edit mode: load transaction data
+        loadTransaction(transactionId);
+      } else {
+        // Add mode: reset form
+        const currentType = type || formData.type;
+        setFormData({
+          type: currentType,
+          amount: '',
+          currency_id: '',
+          description: '',
+          category_id: '',
+          date: new Date().toISOString().split('T')[0],
+        });
+        setError('');
+        // Load categories for the current type
+        loadCategoriesForType(currentType);
+      }
     }
-  }, [isOpen, type]);
+  }, [isOpen, type, transactionId]);
+
+  // Note: Categories are loaded directly in onClick handlers and when modal opens
+  // This useEffect is kept minimal to avoid conflicts
+
+  const loadTransaction = async (id: string) => {
+    setLoadingData(true);
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.transaction) {
+        const tx = data.transaction;
+        setFormData({
+          type: tx.type,
+          amount: tx.amount.toString(),
+          currency_id: tx.currency_id || '',
+          description: tx.description || '',
+          category_id: tx.category_id || '',
+          date: tx.date.split('T')[0],
+        });
+        // Load categories for the transaction type
+        loadCategoriesForType(tx.type);
+      }
+    } catch (err) {
+      console.error('Failed to load transaction:', err);
+      setError('Gagal memuat data transaksi');
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const loadCurrencies = async () => {
     try {
@@ -79,42 +114,33 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
     setLoading(true);
 
     try {
-      // Get session from Supabase client
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'Anda harus login terlebih dahulu',
-        });
-        setError('Anda harus login terlebih dahulu');
-        setLoading(false);
-        return;
-      }
-
       if (!formData.category_id) {
         Swal.fire({
           icon: 'warning',
-          title: 'Peringatan!',
-          text: 'Kategori wajib diisi',
+          title: t.common.warning,
+          text: t.transactionModal.categoryRequired,
         });
-        setError('Kategori wajib diisi');
+        setError(t.transactionModal.categoryRequired);
         return;
       }
 
       if (!formData.currency_id) {
         Swal.fire({
           icon: 'warning',
-          title: 'Peringatan!',
-          text: 'Currency wajib diisi',
+          title: t.common.warning,
+          text: t.transactionModal.currencyRequired,
         });
-        setError('Currency wajib diisi');
+        setError(t.transactionModal.currencyRequired);
         return;
       }
 
-      const response = await fetch('/api/transactions', {
-        method: 'POST',
+      const url = transactionId 
+        ? `/api/transactions/${transactionId}`
+        : '/api/transactions';
+      const method = transactionId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -134,18 +160,18 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
       if (!response.ok) {
         Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: data.error || 'Gagal menambahkan transaksi',
+          title: t.common.error,
+          text: data.error || (transactionId ? t.transactionModal.error : t.transactionModal.error),
         });
-        setError(data.error || 'Gagal menambahkan transaksi');
+        setError(data.error || (transactionId ? t.transactionModal.error : t.transactionModal.error));
         return;
       }
 
       // Success
       Swal.fire({
         icon: 'success',
-        title: 'Berhasil!',
-        text: 'Transaksi berhasil ditambahkan',
+        title: t.common.success,
+        text: transactionId ? t.transactionModal.success : t.transactionModal.success,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -154,18 +180,18 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
-        text: 'Terjadi kesalahan saat menambahkan transaksi',
+        title: t.common.error,
+        text: t.transactionModal.error,
       });
-      setError('Terjadi kesalahan saat menambahkan transaksi');
+      setError(t.transactionModal.error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCategories = async () => {
+  const loadCategoriesForType = async (transactionType: TransactionType) => {
     try {
-      const response = await fetch(`/api/categories?type=${formData.type}`, {
+      const response = await fetch(`/api/categories?type=${transactionType}`, {
         credentials: 'include',
       });
       const data = await response.json();
@@ -184,13 +210,6 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
     }
   };
 
-  // Reload categories when type changes
-  useEffect(() => {
-    if (isOpen) {
-      loadCategories();
-    }
-  }, [formData.type, isOpen]);
-
   if (!isOpen) return null;
 
   return (
@@ -207,7 +226,10 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
             <h2 className="text-xl font-bold text-gray-900">
-              {formData.type === 'income' ? 'Tambah Pemasukan' : 'Tambah Pengeluaran'}
+              {transactionId 
+                ? (formData.type === 'income' ? t.transactionModal.addIncome : t.transactionModal.addOutcome)
+                : (formData.type === 'income' ? t.transactionModal.addIncome : t.transactionModal.addOutcome)
+              }
             </h2>
             <button
               onClick={onClose}
@@ -223,7 +245,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 sm:p-6">
             {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="mb-4 bg-red-50 border border-red-200 text-[#EF4444] px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -233,30 +255,36 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
               {!type && (
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Tipe Transaksi
+                    {t.transactionModal.transactionType}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, type: 'income', category_id: '' })}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, type: 'income', category_id: '' }));
+                        loadCategoriesForType('income');
+                      }}
                       className={`px-4 py-2 rounded-lg font-medium transition ${
                         formData.type === 'income'
-                          ? 'bg-green-600 text-white'
+                          ? 'bg-[#10B981] text-white hover:bg-[#059669]'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
-                      Pemasukan
+                      {t.transactionModal.income}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, type: 'outcome', category_id: '' })}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, type: 'outcome', category_id: '' }));
+                        loadCategoriesForType('outcome');
+                      }}
                       className={`px-4 py-2 rounded-lg font-medium transition ${
                         formData.type === 'outcome'
-                          ? 'bg-red-600 text-white'
+                          ? 'bg-[#EF4444] text-white hover:bg-[#DC2626]'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
-                      Pengeluaran
+                      {t.transactionModal.outcome}
                     </button>
                   </div>
                 </div>
@@ -265,11 +293,11 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
               {/* Category */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-900 mb-1">
-                  Kategori <span className="text-red-500">*</span>
+                  {t.transactionModal.category} <span className="text-[#EF4444]">*</span>
                 </label>
                 {loadingData ? (
                   <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
-                    Loading...
+                    {t.common.loading}
                   </div>
                 ) : (
                   <select
@@ -277,9 +305,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                     value={formData.category_id}
                     onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                   >
-                    <option value="">Pilih kategori</option>
+                    <option value="">{t.transactions.selectCategory}</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.icon && <span>{cat.icon} </span>}
@@ -294,7 +322,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2">
                   <label htmlFor="amount" className="block text-sm font-medium text-gray-900 mb-1">
-                    Jumlah <span className="text-red-500">*</span>
+                    {t.transactionModal.amount} <span className="text-[#EF4444]">*</span>
                   </label>
                   <input
                     id="amount"
@@ -305,16 +333,16 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     required
                     placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                   />
                 </div>
                 <div>
                   <label htmlFor="currency" className="block text-sm font-medium text-gray-900 mb-1">
-                    Mata Uang
+                    {t.transactionModal.currency} <span className="text-[#EF4444]">*</span>
                   </label>
                   {loadingData ? (
                     <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
-                      Loading...
+                      {t.common.loading}
                     </div>
                   ) : (
                     <select
@@ -322,9 +350,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                       value={formData.currency_id}
                       onChange={(e) => setFormData({ ...formData, currency_id: e.target.value })}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                     >
-                      <option value="">Pilih currency</option>
+                      <option value="">{t.transactions.selectCurrency}</option>
                       {currencies.map((curr) => (
                         <option key={curr.id} value={curr.id}>
                           {curr.code} {curr.symbol && `(${curr.symbol})`}
@@ -338,7 +366,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
               {/* Date */}
               <div>
                 <label htmlFor="date" className="block text-sm font-medium text-gray-900 mb-1">
-                  Tanggal <span className="text-red-500">*</span>
+                    {t.transactionModal.date} <span className="text-[#EF4444]">*</span>
                 </label>
                 <input
                   id="date"
@@ -346,22 +374,22 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                 />
               </div>
 
               {/* Description */}
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-900 mb-1">
-                  Deskripsi (Opsional)
+                  {t.transactionModal.descriptionOptional}
                 </label>
                 <textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  placeholder="Tambahkan catatan atau deskripsi..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 resize-none"
+                  placeholder={t.transactionModal.descriptionPlaceholder}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 resize-none"
                 />
               </div>
             </div>
@@ -373,18 +401,18 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                 onClick={onClose}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition font-medium"
               >
-                Batal
+                {t.transactionModal.cancel}
               </button>
               <button
                 type="submit"
                 disabled={loading}
                 className={`px-4 py-2 rounded-md text-white transition font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
                   formData.type === 'income'
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-red-600 hover:bg-red-700'
+                    ? 'bg-[#10B981] hover:bg-[#059669]'
+                    : 'bg-[#EF4444] hover:bg-[#DC2626]'
                 }`}
               >
-                {loading ? 'Menyimpan...' : 'Simpan'}
+                {loading ? t.transactionModal.saving : transactionId ? t.common.save : t.transactionModal.save}
               </button>
             </div>
           </form>

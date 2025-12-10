@@ -61,6 +61,23 @@ interface ReportsData {
       totalOutcome: number;
     };
   };
+  budgetComparison?: Array<{
+    id: string;
+    category: {
+      name: string;
+      icon?: string;
+      color?: string;
+    };
+    budgetAmount: number;
+    spent: number;
+    remaining: number;
+    percentage: number;
+    isExceeded: boolean;
+    isNearLimit: boolean;
+    currency: {
+      code: string;
+    };
+  }>;
 }
 
 const COLORS = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
@@ -138,7 +155,7 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F9FAFB]">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
@@ -151,7 +168,7 @@ export default function ReportsPage() {
 
   if (!reportsData) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F9FAFB]">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-500 py-8">{t.reports.noData}</div>
@@ -161,7 +178,12 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F9FAFB]">
+      {/* Decorative background elements - soft and subtle */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#2563EB]/3 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#10B981]/3 rounded-full blur-3xl"></div>
+      </div>
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -173,7 +195,7 @@ export default function ReportsPage() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
             >
               {yearOptions.map((year) => (
                 <option key={year} value={year}>
@@ -184,7 +206,7 @@ export default function ReportsPage() {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
             >
               {monthOptions.map((month) => (
                 <option key={month.value} value={month.value}>
@@ -197,7 +219,7 @@ export default function ReportsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#10B981]">
             <p className="text-sm font-medium text-gray-600">{t.reports.totalIncome}</p>
             <p className="text-2xl font-bold text-gray-900 mt-2">
               {formatCurrency(reportsData.summary.totalIncome, reportsData.summary.currency)}
@@ -205,7 +227,7 @@ export default function ReportsPage() {
             {reportsData.insights.incomeGrowth !== 0 && (
               <p
                 className={`text-sm mt-1 ${
-                  reportsData.insights.incomeGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                  reportsData.insights.incomeGrowth >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
                 }`}
               >
                 {formatPercent(reportsData.insights.incomeGrowth)} {t.reports.comparedToPrevious}
@@ -213,7 +235,7 @@ export default function ReportsPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#EF4444]">
             <p className="text-sm font-medium text-gray-600">{t.reports.totalOutcome}</p>
             <p className="text-2xl font-bold text-gray-900 mt-2">
               {formatCurrency(reportsData.summary.totalOutcome, reportsData.summary.currency)}
@@ -221,7 +243,7 @@ export default function ReportsPage() {
             {reportsData.insights.outcomeGrowth !== 0 && (
               <p
                 className={`text-sm mt-1 ${
-                  reportsData.insights.outcomeGrowth <= 0 ? 'text-green-600' : 'text-red-600'
+                  reportsData.insights.outcomeGrowth <= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
                 }`}
               >
                 {formatPercent(reportsData.insights.outcomeGrowth)} {t.reports.comparedToPrevious}
@@ -229,11 +251,11 @@ export default function ReportsPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#2563EB]">
             <p className="text-sm font-medium text-gray-600">{t.reports.balance}</p>
             <p
               className={`text-2xl font-bold mt-2 ${
-                reportsData.summary.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                reportsData.summary.balance >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
               }`}
             >
               {formatCurrency(reportsData.summary.balance, reportsData.summary.currency)}
@@ -282,7 +304,7 @@ export default function ReportsPage() {
                 <Line
                   type="monotone"
                   dataKey="balance"
-                  stroke="#3B82F6"
+                  stroke="#2563EB"
                   strokeWidth={2}
                   name="Balance"
                 />
@@ -344,6 +366,61 @@ export default function ReportsPage() {
           </div>
         )}
 
+        {/* Budget vs Actual Comparison */}
+        {reportsData.budgetComparison && reportsData.budgetComparison.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.budget.budgetVsActual}</h2>
+            <div className="space-y-4">
+              {reportsData.budgetComparison.map((budget) => (
+                <div key={budget.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{budget.category?.icon || ''}</span>
+                      <span className="font-medium text-gray-900">{budget.category?.name || '-'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-gray-600">
+                        {formatCurrency(budget.spent, budget.currency?.code || reportsData.summary.currency)}
+                        {' / '}
+                        {formatCurrency(budget.budgetAmount, budget.currency?.code || reportsData.summary.currency)}
+                      </span>
+                      {budget.isExceeded && (
+                        <span className="ml-2 text-xs text-[#EF4444] font-semibold">({t.budget.exceeded})</span>
+                      )}
+                      {budget.isNearLimit && !budget.isExceeded && (
+                        <span className="ml-2 text-xs text-[#F59E0B] font-semibold">({t.budget.nearLimit})</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                    <div
+                      className={`h-3 rounded-full transition-all ${
+                        budget.isExceeded
+                          ? 'bg-[#EF4444]'
+                          : budget.isNearLimit
+                          ? 'bg-[#F59E0B]'
+                          : 'bg-[#10B981]'
+                      }`}
+                      style={{ width: `${Math.min(budget.percentage, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      {t.budget.budget}: {formatCurrency(budget.budgetAmount, budget.currency?.code || reportsData.summary.currency)}
+                    </span>
+                    <span className="text-gray-600">
+                      {t.budget.actual}: {formatCurrency(budget.spent, budget.currency?.code || reportsData.summary.currency)}
+                    </span>
+                    <span className={budget.remaining < 0 ? 'text-[#EF4444] font-semibold' : 'text-gray-600'}>
+                      {t.budget.remaining}: {formatCurrency(budget.remaining, budget.currency?.code || reportsData.summary.currency)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Insights */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.reports.insights}</h2>
@@ -379,7 +456,7 @@ export default function ReportsPage() {
               <p className="text-sm font-medium text-gray-600">{t.reports.incomeGrowth}</p>
               <p
                 className={`text-2xl font-bold mt-2 ${
-                  reportsData.insights.incomeGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                  reportsData.insights.incomeGrowth >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
                 }`}
               >
                 {formatPercent(reportsData.insights.incomeGrowth)}

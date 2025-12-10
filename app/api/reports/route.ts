@@ -256,6 +256,89 @@ export async function GET(request: NextRequest) {
       ? ((totalOutcome - prevTotalOutcome) / prevTotalOutcome) * 100
       : 0;
 
+    // Get budgets for the period
+    const { data: budgets } = await supabase
+      .from('budgets')
+      .select(`
+        *,
+        category:categories(id, name, icon, color, type),
+        currency:currencies(id, code, name, symbol, exchange_rate)
+      `)
+      .eq('user_id', user.id)
+      .eq('year', parseInt(year));
+
+    if (month) {
+      // Filter by month if specified
+      const budgetsQuery = supabase
+        .from('budgets')
+        .select(`
+          *,
+          category:categories(id, name, icon, color, type),
+          currency:currencies(id, code, name, symbol, exchange_rate)
+        `)
+        .eq('user_id', user.id)
+        .eq('year', parseInt(year))
+        .eq('month', parseInt(month));
+      
+      const { data: monthBudgets } = await budgetsQuery;
+      
+      // Calculate budget vs actual for each budget
+      const budgetComparison = (monthBudgets || []).map((budget: any) => {
+        const categorySpent = categoryBreakdown.find((cat) => cat.name === budget.category?.name);
+        const spent = categorySpent?.value || 0;
+        
+        // Convert budget amount to base currency
+        let budgetAmount = parseFloat(budget.amount.toString());
+        if (budget.currency?.code !== baseCurrency) {
+          const rate = budget.currency?.exchange_rate;
+          if (rate && rate > 0) {
+            budgetAmount = budgetAmount / rate;
+          }
+        }
+        
+        const remaining = budgetAmount - spent;
+        const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+        
+        return {
+          ...budget,
+          spent,
+          budgetAmount,
+          remaining,
+          percentage: Math.min(percentage, 100),
+          isExceeded: spent > budgetAmount,
+          isNearLimit: percentage >= (budget.alert_threshold || 80),
+        };
+      });
+
+      return NextResponse.json({
+        period: {
+          year: parseInt(year),
+          month: parseInt(month),
+        },
+        summary: {
+          totalIncome,
+          totalOutcome,
+          balance: totalIncome - totalOutcome,
+          currency: baseCurrency,
+          totalTransactions,
+          avgTransactionAmount,
+        },
+        monthlyTrends,
+        categoryBreakdown: categoryData,
+        budgetComparison,
+        insights: {
+          topCategory,
+          avgCategorySpending,
+          incomeGrowth,
+          outcomeGrowth,
+          prevPeriod: {
+            totalIncome: prevTotalIncome,
+            totalOutcome: prevTotalOutcome,
+          },
+        },
+      });
+    }
+
     return NextResponse.json({
       period: {
         year: parseInt(year),
