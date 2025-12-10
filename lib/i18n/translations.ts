@@ -158,6 +158,31 @@ export interface Translations {
     registerError: string;
     logout: string;
   };
+
+  // Reports
+  reports: {
+    title: string;
+    subtitle: string;
+    selectYear: string;
+    selectMonth: string;
+    allMonths: string;
+    summary: string;
+    monthlyTrends: string;
+    categoryBreakdown: string;
+    insights: string;
+    totalIncome: string;
+    totalOutcome: string;
+    balance: string;
+    totalTransactions: string;
+    avgTransaction: string;
+    topCategory: string;
+    avgCategorySpending: string;
+    incomeGrowth: string;
+    outcomeGrowth: string;
+    comparedToPrevious: string;
+    noData: string;
+    loading: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -304,6 +329,29 @@ export const translations: Record<Language, Translations> = {
       registerError: 'Registrasi gagal',
       logout: 'Keluar',
     },
+    reports: {
+      title: 'Laporan',
+      subtitle: 'Analisis keuangan bulanan Anda',
+      selectYear: 'Pilih Tahun',
+      selectMonth: 'Pilih Bulan',
+      allMonths: 'Semua Bulan',
+      summary: 'Ringkasan',
+      monthlyTrends: 'Tren Bulanan',
+      categoryBreakdown: 'Pengeluaran per Kategori',
+      insights: 'Insight',
+      totalIncome: 'Total Pemasukan',
+      totalOutcome: 'Total Pengeluaran',
+      balance: 'Saldo',
+      totalTransactions: 'Total Transaksi',
+      avgTransaction: 'Rata-rata Transaksi',
+      topCategory: 'Kategori Teratas',
+      avgCategorySpending: 'Rata-rata per Kategori',
+      incomeGrowth: 'Pertumbuhan Pemasukan',
+      outcomeGrowth: 'Pertumbuhan Pengeluaran',
+      comparedToPrevious: 'Dibandingkan periode sebelumnya',
+      noData: 'Tidak ada data untuk periode ini',
+      loading: 'Memuat data...',
+    },
   },
   en: {
     common: {
@@ -447,6 +495,29 @@ export const translations: Record<Language, Translations> = {
       registerSuccess: 'Registration successful',
       registerError: 'Registration failed',
       logout: 'Logout',
+    },
+    reports: {
+      title: 'Reports',
+      subtitle: 'Your monthly financial analysis',
+      selectYear: 'Select Year',
+      selectMonth: 'Select Month',
+      allMonths: 'All Months',
+      summary: 'Summary',
+      monthlyTrends: 'Monthly Trends',
+      categoryBreakdown: 'Category Breakdown',
+      insights: 'Insights',
+      totalIncome: 'Total Income',
+      totalOutcome: 'Total Outcome',
+      balance: 'Balance',
+      totalTransactions: 'Total Transactions',
+      avgTransaction: 'Average Transaction',
+      topCategory: 'Top Category',
+      avgCategorySpending: 'Average per Category',
+      incomeGrowth: 'Income Growth',
+      outcomeGrowth: 'Outcome Growth',
+      comparedToPrevious: 'Compared to previous period',
+      noData: 'No data for this period',
+      loading: 'Loading data...',
     },
   },
 };

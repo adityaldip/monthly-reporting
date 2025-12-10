@@ -40,9 +40,11 @@ export interface TransactionCreate {
 export interface TransactionUpdate {
   type?: TransactionType;
   amount?: number;
-  currency?: Currency;
+  currency?: LegacyCurrency;
+  currency_id?: string;
   description?: string;
   category?: TransactionCategory;
+  category_id?: string;
   date?: string;
 }
 

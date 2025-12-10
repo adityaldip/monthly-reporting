@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       refresh_token: refreshToken,
     });
 
-    if (refreshError || !sessionData?.session) {
+    if (refreshError || !sessionData?.session || !sessionData?.user) {
       // Clear cookies on refresh failure
       const response = NextResponse.json(
         { error: refreshError?.message || 'Failed to refresh session' },
