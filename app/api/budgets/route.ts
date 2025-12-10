@@ -47,22 +47,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current period transactions to calculate spent amounts
-    const now = new Date();
-    const currentYear = year ? parseInt(year) : now.getFullYear();
-    const currentMonth = month ? parseInt(month) : now.getMonth() + 1;
-
-    const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-31`;
-
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select('category_id, amount, currency, currency_id, type')
-      .eq('user_id', user.id)
-      .eq('type', 'outcome')
-      .gte('date', startDate)
-      .lte('date', endDate);
-
     // Get default currency for conversion
     const { data: defaultCurrency } = await supabase
       .from('currencies')
@@ -85,38 +69,93 @@ export async function GET(request: NextRequest) {
       currencyMap.set(curr.code, curr);
     });
 
-    // Calculate spent per category
-    const spentByCategory: Record<string, number> = {};
+    // If year/month filter is provided, calculate spent for that period
+    // Otherwise, we'll calculate spent for each budget's own period
+    let spentByCategory: Record<string, number> = {};
     
-    transactions?.forEach((tx: any) => {
-      if (!tx.category_id) return;
+    if (year && month) {
+      // Single period - calculate spent for that period
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
 
-      let currencyCode = baseCurrency;
-      if (tx.currency_id) {
-        const currencyData = currencyMap.get(tx.currency_id);
-        currencyCode = currencyData?.code || baseCurrency;
-      } else if (tx.currency) {
-        currencyCode = tx.currency;
-      }
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('category_id, amount, currency, currency_id, type')
+        .eq('user_id', user.id)
+        .eq('type', 'outcome')
+        .gte('date', startDate)
+        .lte('date', endDate);
 
-      let amount = parseFloat(tx.amount.toString());
-      if (currencyCode !== baseCurrency) {
-        const currencyData = currencyMap.get(currencyCode);
-        const rate = currencyData?.exchange_rate;
-        if (rate && rate > 0) {
-          amount = amount / rate;
+      transactions?.forEach((tx: any) => {
+        if (!tx.category_id) return;
+
+        let currencyCode = baseCurrency;
+        if (tx.currency_id) {
+          const currencyData = currencyMap.get(tx.currency_id);
+          currencyCode = currencyData?.code || baseCurrency;
+        } else if (tx.currency) {
+          currencyCode = tx.currency;
         }
-      }
 
-      if (!spentByCategory[tx.category_id]) {
-        spentByCategory[tx.category_id] = 0;
-      }
-      spentByCategory[tx.category_id] += amount;
-    });
+        let amount = parseFloat(tx.amount.toString());
+        if (currencyCode !== baseCurrency) {
+          const currencyData = currencyMap.get(currencyCode);
+          const rate = currencyData?.exchange_rate;
+          if (rate && rate > 0) {
+            amount = amount / rate;
+          }
+        }
+
+        if (!spentByCategory[tx.category_id]) {
+          spentByCategory[tx.category_id] = 0;
+        }
+        spentByCategory[tx.category_id] += amount;
+      });
+    }
 
     // Enrich budgets with spent amounts
-    const enrichedBudgets = (budgets || []).map((budget: any) => {
-      const spent = spentByCategory[budget.category_id] || 0;
+    const enrichedBudgets = [];
+    for (const budget of budgets || []) {
+      let spent = 0;
+      
+      if (year && month) {
+        // Use pre-calculated spent if filtering by single period
+        spent = spentByCategory[budget.category_id] || 0;
+      } else {
+        // Calculate spent for each budget's own period
+        const budgetStartDate = `${budget.year}-${String(budget.month).padStart(2, '0')}-01`;
+        const budgetEndDate = `${budget.year}-${String(budget.month).padStart(2, '0')}-31`;
+
+        const { data: budgetTransactions } = await supabase
+          .from('transactions')
+          .select('category_id, amount, currency, currency_id, type')
+          .eq('user_id', user.id)
+          .eq('type', 'outcome')
+          .eq('category_id', budget.category_id)
+          .gte('date', budgetStartDate)
+          .lte('date', budgetEndDate);
+
+        budgetTransactions?.forEach((tx: any) => {
+          let currencyCode = baseCurrency;
+          if (tx.currency_id) {
+            const currencyData = currencyMap.get(tx.currency_id);
+            currencyCode = currencyData?.code || baseCurrency;
+          } else if (tx.currency) {
+            currencyCode = tx.currency;
+          }
+
+          let amount = parseFloat(tx.amount.toString());
+          if (currencyCode !== baseCurrency) {
+            const currencyData = currencyMap.get(currencyCode);
+            const rate = currencyData?.exchange_rate;
+            if (rate && rate > 0) {
+              amount = amount / rate;
+            }
+          }
+
+          spent += amount;
+        });
+      }
       const budgetAmount = parseFloat(budget.amount.toString());
       
       // Convert budget amount to base currency if needed
@@ -134,15 +173,15 @@ export async function GET(request: NextRequest) {
       const isExceeded = spent > budgetInBaseCurrency;
       const isNearLimit = percentage >= (budget.alert_threshold || 80);
 
-      return {
+      enrichedBudgets.push({
         ...budget,
         spent,
         remaining,
         percentage: Math.min(percentage, 100),
         isExceeded,
         isNearLimit,
-      };
-    });
+      });
+    }
 
     return NextResponse.json({ budgets: enrichedBudgets }, { status: 200 });
   } catch (error) {

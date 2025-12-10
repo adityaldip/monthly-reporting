@@ -102,9 +102,9 @@ export default function SettingsPage() {
         }
         setCategories(data.categories || []);
       } else if (activeTab === 'budgets') {
-        const now = new Date();
+        // Load all budgets without filtering by year/month
         const response = await fetch(
-          `/api/budgets?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+          `/api/budgets`,
           { credentials: 'include' }
         );
         const data = await response.json();
