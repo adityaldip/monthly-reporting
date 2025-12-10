@@ -22,11 +22,18 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month');
     const year = searchParams.get('year');
 
+    // Get transactions
     let query = supabase
       .from('transactions')
       .select('*')
       .eq('user_id', user.id)
       .order('date', { ascending: false });
+
+    // Add limit if specified
+    const limit = searchParams.get('limit');
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
 
     if (type) {
       query = query.eq('type', type);
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
       query = query.gte('date', startDate).lte('date', endDate);
     }
 
-    const { data, error } = await query;
+    const { data: transactions, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -55,7 +62,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ transactions: data || [] }, { status: 200 });
+    // Enrich transactions with currency and category info
+    const enrichedTransactions = await Promise.all(
+      (transactions || []).map(async (tx: any) => {
+        const enriched: any = { ...tx };
+
+        // Get currency info if currency_id exists
+        if (tx.currency_id) {
+          const { data: currencyData } = await supabase
+            .from('currencies')
+            .select('code, name, symbol')
+            .eq('id', tx.currency_id)
+            .single();
+          
+          if (currencyData) {
+            enriched.currency = currencyData;
+          }
+        }
+
+        // Get category info if category_id exists
+        if (tx.category_id) {
+          const { data: categoryData } = await supabase
+            .from('categories')
+            .select('name, icon, color')
+            .eq('id', tx.category_id)
+            .single();
+          
+          if (categoryData) {
+            enriched.category = categoryData;
+          }
+        }
+
+        return enriched;
+      })
+    );
+
+    return NextResponse.json({ transactions: enrichedTransactions }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
       { error: 'Terjadi kesalahan server' },
@@ -92,11 +134,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body: TransactionCreate = await request.json();
-    const { type, amount, currency, description, category, date } = body;
+    const { type, amount, currency, currency_id, description, category, category_id, date } = body;
 
-    if (!type || !amount || !currency || !date || !category) {
+    // Support both legacy format (currency, category) and new format (currency_id, category_id)
+    const finalCurrencyId = currency_id || null;
+    const finalCategoryId = category_id || null;
+    const finalCurrency = currency || null;
+    const finalCategory = category || null;
+
+    if (!type || !amount || !date) {
       return NextResponse.json(
-        { error: 'Type, amount, currency, category, dan date wajib diisi' },
+        { error: 'Type, amount, dan date wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    // Must have either currency_id or currency (legacy)
+    if (!finalCurrencyId && !finalCurrency) {
+      return NextResponse.json(
+        { error: 'Currency wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    // Must have either category_id or category (legacy)
+    if (!finalCategoryId && !finalCategory) {
+      return NextResponse.json(
+        { error: 'Category wajib diisi' },
         { status: 400 }
       );
     }
@@ -108,23 +172,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate category based on type
-    if (type === 'income') {
-      const validCategories = getIncomeCategories();
-      if (!validCategories.includes(category as any)) {
+    // Validate category_id exists and belongs to user and matches type
+    let categoryName = finalCategory;
+    if (finalCategoryId) {
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('id, type, name')
+        .eq('id', finalCategoryId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (categoryError || !categoryData) {
         return NextResponse.json(
-          { error: `Category untuk income harus salah satu dari: ${validCategories.join(', ')}` },
+          { error: 'Category tidak ditemukan' },
           { status: 400 }
         );
       }
+
+      if (categoryData.type !== type) {
+        return NextResponse.json(
+          { error: 'Category type tidak sesuai dengan transaction type' },
+          { status: 400 }
+        );
+      }
+
+      // Get category name from database
+      categoryName = categoryData.name;
     } else {
-      const validCategories = getOutcomeCategories();
-      if (!validCategories.includes(category as any)) {
+      // Legacy validation for category string
+      if (type === 'income') {
+        const validCategories = getIncomeCategories();
+        if (!validCategories.includes(finalCategory as any)) {
+          return NextResponse.json(
+            { error: `Category untuk income harus salah satu dari: ${validCategories.join(', ')}` },
+            { status: 400 }
+          );
+        }
+      } else {
+        const validCategories = getOutcomeCategories();
+        if (!validCategories.includes(finalCategory as any)) {
+          return NextResponse.json(
+            { error: `Category untuk outcome harus salah satu dari: ${validCategories.join(', ')}` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Validate currency_id exists and belongs to user
+    let currencyCode = finalCurrency;
+    if (finalCurrencyId) {
+      const { data: currencyData, error: currencyError } = await supabase
+        .from('currencies')
+        .select('id, code')
+        .eq('id', finalCurrencyId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (currencyError || !currencyData) {
         return NextResponse.json(
-          { error: `Category untuk outcome harus salah satu dari: ${validCategories.join(', ')}` },
+          { error: 'Currency tidak ditemukan' },
           { status: 400 }
         );
       }
+
+      // Get currency code from database
+      currencyCode = currencyData.code;
     }
 
     if (amount <= 0) {
@@ -134,17 +247,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const insertData: any = {
+      user_id: user.id,
+      type,
+      amount,
+      description: description || null,
+      date,
+    };
+
+    // Use new format (currency_id, category_id) and also populate legacy fields
+    if (finalCurrencyId) {
+      insertData.currency_id = finalCurrencyId;
+      insertData.currency = currencyCode; // Populate legacy field with code from database
+    } else {
+      insertData.currency = finalCurrency;
+    }
+
+    if (finalCategoryId) {
+      insertData.category_id = finalCategoryId;
+      insertData.category = categoryName; // Populate legacy field with name from database
+    } else {
+      insertData.category = finalCategory;
+    }
+
     const { data, error } = await supabase
       .from('transactions')
-      .insert({
-        user_id: user.id,
-        type,
-        amount,
-        currency,
-        description: description || null,
-        category: category,
-        date,
-      })
+      .insert(insertData)
       .select()
       .single();
 

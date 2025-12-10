@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TransactionType, Currency, getIncomeCategories, getOutcomeCategories, categoryLabels } from '@/types/transaction';
+import Swal from 'sweetalert2';
+import { TransactionType } from '@/types/transaction';
 import { supabase } from '@/lib/supabase/client';
+import { Currency } from '@/types/currency';
+import { Category } from '@/types/category';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -15,34 +18,60 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
   const [formData, setFormData] = useState({
     type: type || ('income' as TransactionType),
     amount: '',
-    currency: 'IDR' as Currency,
+    currency_id: '',
     description: '',
-    category: '' as string,
+    category_id: '',
     date: new Date().toISOString().split('T')[0],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
-    if (type) {
-      setFormData(prev => ({ ...prev, type, category: '' }));
+    if (type && isOpen) {
+      setFormData(prev => ({ ...prev, type, category_id: '' }));
+      loadCategories();
     }
   }, [type]);
 
   useEffect(() => {
     if (isOpen) {
+      loadCurrencies();
+      loadCategories();
       // Reset form when modal opens
+      const currentType = type || formData.type;
       setFormData({
-        type: type || ('income' as TransactionType),
+        type: currentType,
         amount: '',
-        currency: 'IDR' as Currency,
+        currency_id: '',
         description: '',
-        category: '',
+        category_id: '',
         date: new Date().toISOString().split('T')[0],
       });
       setError('');
     }
   }, [isOpen, type]);
+
+  const loadCurrencies = async () => {
+    try {
+      const response = await fetch('/api/currencies', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCurrencies(data.currencies || []);
+        // Set default currency if available
+        const defaultCurrency = data.currencies?.find((c: Currency) => c.is_default);
+        if (defaultCurrency) {
+          setFormData(prev => ({ ...prev, currency_id: defaultCurrency.id }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load currencies:', err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,13 +83,33 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'Anda harus login terlebih dahulu',
+        });
         setError('Anda harus login terlebih dahulu');
         setLoading(false);
         return;
       }
 
-      if (!formData.category) {
+      if (!formData.category_id) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Peringatan!',
+          text: 'Kategori wajib diisi',
+        });
         setError('Kategori wajib diisi');
+        return;
+      }
+
+      if (!formData.currency_id) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Peringatan!',
+          text: 'Currency wajib diisi',
+        });
+        setError('Currency wajib diisi');
         return;
       }
 
@@ -73,9 +122,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
         body: JSON.stringify({
           type: formData.type,
           amount: parseFloat(formData.amount),
-          currency: formData.currency,
+          currency_id: formData.currency_id,
           description: formData.description || undefined,
-          category: formData.category,
+          category_id: formData.category_id,
           date: formData.date,
         }),
       });
@@ -83,25 +132,64 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
       const data = await response.json();
 
       if (!response.ok) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: data.error || 'Gagal menambahkan transaksi',
+        });
         setError(data.error || 'Gagal menambahkan transaksi');
         return;
       }
 
       // Success
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: 'Transaksi berhasil ditambahkan',
+        timer: 2000,
+        showConfirmButton: false,
+      });
       onSuccess?.();
       onClose();
     } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: 'Terjadi kesalahan saat menambahkan transaksi',
+      });
       setError('Terjadi kesalahan saat menambahkan transaksi');
     } finally {
       setLoading(false);
     }
   };
 
-  const getCategories = () => {
-    return formData.type === 'income' ? getIncomeCategories() : getOutcomeCategories();
+  const loadCategories = async () => {
+    try {
+      const response = await fetch(`/api/categories?type=${formData.type}`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCategories(data.categories || []);
+        // Set default category if available
+        const defaultCategory = data.categories?.find((c: Category) => c.is_default);
+        if (defaultCategory) {
+          setFormData(prev => ({ ...prev, category_id: defaultCategory.id }));
+        } else {
+          setFormData(prev => ({ ...prev, category_id: '' }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    }
   };
 
-  const currencies: Currency[] = ['IDR', 'USD', 'EUR', 'SGD', 'MYR', 'JPY', 'CNY', 'GBP', 'AUD', 'CAD'];
+  // Reload categories when type changes
+  useEffect(() => {
+    if (isOpen) {
+      loadCategories();
+    }
+  }, [formData.type, isOpen]);
 
   if (!isOpen) return null;
 
@@ -109,7 +197,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
@@ -150,7 +238,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, type: 'income', category: '' })}
+                      onClick={() => setFormData({ ...formData, type: 'income', category_id: '' })}
                       className={`px-4 py-2 rounded-lg font-medium transition ${
                         formData.type === 'income'
                           ? 'bg-green-600 text-white'
@@ -161,7 +249,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, type: 'outcome', category: '' })}
+                      onClick={() => setFormData({ ...formData, type: 'outcome', category_id: '' })}
                       className={`px-4 py-2 rounded-lg font-medium transition ${
                         formData.type === 'outcome'
                           ? 'bg-red-600 text-white'
@@ -179,20 +267,27 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                 <label htmlFor="category" className="block text-sm font-medium text-gray-900 mb-1">
                   Kategori <span className="text-red-500">*</span>
                 </label>
-                <select
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                >
-                  <option value="">Pilih kategori</option>
-                  {getCategories().map((cat) => (
-                    <option key={cat} value={cat}>
-                      {categoryLabels[cat]}
-                    </option>
-                  ))}
-                </select>
+                {loadingData ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                    Loading...
+                  </div>
+                ) : (
+                  <select
+                    id="category"
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">Pilih kategori</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon && <span>{cat.icon} </span>}
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Amount and Currency */}
@@ -217,18 +312,26 @@ export default function TransactionModal({ isOpen, onClose, type, onSuccess }: T
                   <label htmlFor="currency" className="block text-sm font-medium text-gray-900 mb-1">
                     Mata Uang
                   </label>
-                  <select
-                    id="currency"
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    {currencies.map((curr) => (
-                      <option key={curr} value={curr}>
-                        {curr}
-                      </option>
-                    ))}
-                  </select>
+                  {loadingData ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                      Loading...
+                    </div>
+                  ) : (
+                    <select
+                      id="currency"
+                      value={formData.currency_id}
+                      onChange={(e) => setFormData({ ...formData, currency_id: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    >
+                      <option value="">Pilih currency</option>
+                      {currencies.map((curr) => (
+                        <option key={curr.id} value={curr.id}>
+                          {curr.code} {curr.symbol && `(${curr.symbol})`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

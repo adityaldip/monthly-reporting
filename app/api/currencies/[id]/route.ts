@@ -6,7 +6,7 @@ import { CurrencyUpdate } from '@/types/currency';
 // PUT - Update currency
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -18,6 +18,7 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const body: CurrencyUpdate = await request.json();
     const { code, name, symbol, is_default, exchange_rate } = body;
 
@@ -25,7 +26,7 @@ export async function PUT(
     const { data: existing, error: checkError } = await supabase
       .from('currencies')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -46,7 +47,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('currencies')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -76,7 +77,7 @@ export async function PUT(
 // DELETE - Delete currency
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -88,10 +89,11 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     const { error } = await supabase
       .from('currencies')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (error) {

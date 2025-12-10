@@ -6,7 +6,7 @@ import { getAuthenticatedUser } from '@/lib/supabase/auth';
 // GET - Get single transaction
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -18,10 +18,11 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -44,7 +45,7 @@ export async function GET(
 // PUT - Update transaction
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -56,6 +57,7 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const body: TransactionUpdate = await request.json();
     const { type, amount, currency, description, category, date } = body;
 
@@ -63,7 +65,7 @@ export async function PUT(
     const { data: existing, error: checkError } = await supabase
       .from('transactions')
       .select('id, type')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -116,7 +118,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('transactions')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -146,7 +148,7 @@ export async function PUT(
 // DELETE - Delete transaction
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -158,10 +160,11 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     const { error } = await supabase
       .from('transactions')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (error) {
