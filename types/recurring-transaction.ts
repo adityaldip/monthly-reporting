@@ -37,6 +37,9 @@ export interface RecurringTransaction {
 export interface RecurringTransactionCreate {
   type: 'income' | 'outcome';
   amount: number;
+  // Use either legacy format or new format
+  currency?: string;
+  category?: string;
   currency_id?: string;
   category_id?: string;
   description?: string;

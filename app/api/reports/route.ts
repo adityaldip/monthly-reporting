@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
       
       // Calculate budget vs actual for each budget
       const budgetComparison = (monthBudgets || []).map((budget: any) => {
-        const categorySpent = categoryBreakdown.find((cat) => cat.name === budget.category?.name);
+        const categorySpent = categoryData.find((cat) => cat.name === budget.category?.name);
         const spent = categorySpent?.value || 0;
         
         // Convert budget amount to base currency
