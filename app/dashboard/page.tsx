@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import TransactionModal from '@/components/TransactionModal';
 import { useI18n } from '@/lib/i18n/context';
+import { useCurrency } from '@/lib/currency/context';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -24,18 +25,11 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'income' | 'outcome' | undefined>(undefined);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
-  const [currencies, setCurrencies] = useState<any[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [budgets, setBudgets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const { selectedCurrency, currencies } = useCurrency();
 
   useEffect(() => {
-    // Load saved currency preference from localStorage
-    const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-    if (savedCurrency) {
-      setSelectedCurrency(savedCurrency);
-    }
-    loadCurrencies();
     loadCategories();
   }, []);
 
@@ -55,74 +49,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Reload stats when currency changes
-    // Don't wait for currencies to load - use saved currency or proceed anyway
     if (selectedCurrency) {
       loadDashboardData(selectedCurrency);
-    } else if (currencies.length > 0 && !selectedCurrency) {
-      // If currencies loaded but no currency selected yet, wait for loadCurrencies to set it
-      // This will be handled by loadCurrencies setting selectedCurrency
-    } else if (!selectedCurrency && currencies.length === 0) {
-      // If no currency selected and currencies haven't loaded, try with default or empty
-      // This prevents infinite loading
-      const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-      if (savedCurrency) {
-        setSelectedCurrency(savedCurrency);
-      } else {
-        // Load dashboard with default currency (will be handled by API)
-        loadDashboardData();
-      }
+    } else if (currencies.length > 0) {
+      // If currencies loaded but no currency selected, wait for CurrencyProvider to set it
+      // or load with default
+      loadDashboardData();
+    } else {
+      // Load dashboard with default currency (will be handled by API)
+      loadDashboardData();
     }
   }, [selectedCurrency, currencies.length]);
-
-  const loadCurrencies = async () => {
-    try {
-      const response = await fetch('/api/currencies', {
-        credentials: 'include',
-      });
-      
-      if (response.status === 401) {
-        // Unauthorized - redirect to login
-        router.push('/login');
-        return;
-      }
-      
-      const data = await response.json();
-      if (response.ok) {
-        setCurrencies(data.currencies || []);
-        setCurrencies(data.currencies || []);
-        // If no saved currency, use default currency
-        const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-        if (!savedCurrency && data.currencies && data.currencies.length > 0) {
-          const defaultCurrency = data.currencies.find((c: any) => c.is_default);
-          if (defaultCurrency) {
-            setSelectedCurrency(defaultCurrency.code);
-            localStorage.setItem('dashboardDisplayCurrency', defaultCurrency.code);
-          } else {
-            // Fallback to first currency if no default
-            setSelectedCurrency(data.currencies[0].code);
-            localStorage.setItem('dashboardDisplayCurrency', data.currencies[0].code);
-          }
-        } else if (savedCurrency && data.currencies && data.currencies.length > 0) {
-          // Verify saved currency exists in user's currencies
-          const currencyExists = data.currencies.some((c: any) => c.code === savedCurrency);
-          if (!currencyExists) {
-            // If saved currency doesn't exist, use default or first
-            const defaultCurrency = data.currencies.find((c: any) => c.is_default);
-            const currencyToUse = defaultCurrency || data.currencies[0];
-            setSelectedCurrency(currencyToUse.code);
-            localStorage.setItem('dashboardDisplayCurrency', currencyToUse.code);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load currencies:', err);
-      // If currencies fail to load, still try to load dashboard with saved currency
-      const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-      if (savedCurrency) {
-        setSelectedCurrency(savedCurrency);
-      }
-    }
-  };
 
   const loadDashboardData = async (currency?: string) => {
     setLoading(true);
@@ -270,32 +207,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{t.dashboard.title}</h1>
-            <p className="mt-2 text-gray-600">{t.dashboard.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="currency-select" className="text-sm font-medium text-gray-700">
-              {t.dashboard.displayIn}:
-            </label>
-            <select
-              id="currency-select"
-              value={selectedCurrency}
-              onChange={(e) => {
-                const newCurrency = e.target.value;
-                setSelectedCurrency(newCurrency);
-                localStorage.setItem('dashboardDisplayCurrency', newCurrency);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white/90 backdrop-blur-sm shadow-sm"
-            >
-              {currencies.map((curr) => (
-                <option key={curr.id} value={curr.code}>
-                  {curr.code} - {curr.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">{t.dashboard.title}</h1>
+          <p className="mt-2 text-gray-600">{t.dashboard.subtitle}</p>
         </div>
 
         {/* Stats Cards */}

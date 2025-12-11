@@ -6,6 +6,7 @@ import TransactionModal from '@/components/TransactionModal';
 import RecurringTransactionModal from '@/components/RecurringTransactionModal';
 import { Transaction } from '@/types/transaction';
 import { useI18n } from '@/lib/i18n/context';
+import { useCurrency } from '@/lib/currency/context';
 import Swal from 'sweetalert2';
 
 export default function TransactionsPage() {
@@ -17,10 +18,9 @@ export default function TransactionsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // All transactions for client-side filtering
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'outcome'>('all');
-  const [currencies, setCurrencies] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [baseCurrency, setBaseCurrency] = useState<string>('IDR');
+  const { selectedCurrency, currencies } = useCurrency();
   
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,58 +46,22 @@ export default function TransactionsPage() {
   const [editingRecurringId, setEditingRecurringId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // Load saved currency preference from localStorage
-    const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-    if (savedCurrency) {
-      setSelectedCurrency(savedCurrency);
-    }
-    loadCurrencies();
     loadCategories();
     loadTransactions();
-  }, []);
+    // Set base currency from currencies
+    if (currencies.length > 0) {
+      const defaultCurrency = currencies.find((c: any) => c.is_default);
+      if (defaultCurrency) {
+        setBaseCurrency(defaultCurrency.code);
+      }
+    }
+  }, [currencies]);
 
   useEffect(() => {
     // Apply filters and sort when dependencies change
     applyFiltersAndSort();
   }, [filterType, searchQuery, filterCategory, filterCurrency, dateFrom, dateTo, amountMin, amountMax, sortField, sortOrder, allTransactions]);
 
-  const loadCurrencies = async () => {
-    try {
-      const response = await fetch('/api/currencies', {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setCurrencies(data.currencies || []);
-        // Find base currency
-        const defaultCurrency = data.currencies.find((c: any) => c.is_default);
-        if (defaultCurrency) {
-          setBaseCurrency(defaultCurrency.code);
-        }
-        // If no saved currency, use default currency
-        const savedCurrency = localStorage.getItem('dashboardDisplayCurrency');
-        if (!savedCurrency && data.currencies) {
-          if (defaultCurrency) {
-            setSelectedCurrency(defaultCurrency.code);
-            localStorage.setItem('dashboardDisplayCurrency', defaultCurrency.code);
-          } else if (data.currencies.length > 0) {
-            setSelectedCurrency(data.currencies[0].code);
-            localStorage.setItem('dashboardDisplayCurrency', data.currencies[0].code);
-          }
-        } else if (savedCurrency) {
-          // Verify saved currency exists
-          const currencyExists = data.currencies.some((c: any) => c.code === savedCurrency);
-          if (!currencyExists && data.currencies.length > 0) {
-            const currencyToUse = defaultCurrency || data.currencies[0];
-            setSelectedCurrency(currencyToUse.code);
-            localStorage.setItem('dashboardDisplayCurrency', currencyToUse.code);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load currencies:', err);
-    }
-  };
 
   const loadCategories = async () => {
     try {
@@ -510,27 +474,6 @@ export default function TransactionsPage() {
                 {t.transactions.recurringTransactions}
               </button>
             </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="currency-select" className="text-sm font-medium text-gray-700">
-              {t.dashboard.displayIn}:
-            </label>
-            <select
-              id="currency-select"
-              value={selectedCurrency}
-              onChange={(e) => {
-                const newCurrency = e.target.value;
-                setSelectedCurrency(newCurrency);
-                localStorage.setItem('dashboardDisplayCurrency', newCurrency);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
-            >
-              {currencies.map((curr) => (
-                <option key={curr.id} value={curr.code}>
-                  {curr.code} - {curr.name}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 

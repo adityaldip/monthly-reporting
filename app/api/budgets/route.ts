@@ -116,11 +116,11 @@ export async function GET(request: NextRequest) {
     // Enrich budgets with spent amounts
     const enrichedBudgets = [];
     for (const budget of budgets || []) {
-      let spent = 0;
+      let spentInBaseCurrency = 0;
       
       if (year && month) {
-        // Use pre-calculated spent if filtering by single period
-        spent = spentByCategory[budget.category_id] || 0;
+        // Use pre-calculated spent if filtering by single period (already in base currency)
+        spentInBaseCurrency = spentByCategory[budget.category_id] || 0;
       } else {
         // Calculate spent for each budget's own period
         const budgetStartDate = `${budget.year}-${String(budget.month).padStart(2, '0')}-01`;
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          spent += amount;
+          spentInBaseCurrency += amount;
         });
       }
       const budgetAmount = parseFloat(budget.amount.toString());
@@ -168,15 +168,37 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const remaining = budgetInBaseCurrency - spent;
-      const percentage = budgetInBaseCurrency > 0 ? (spent / budgetInBaseCurrency) * 100 : 0;
-      const isExceeded = spent > budgetInBaseCurrency;
+      // Calculate remaining in base currency
+      const remainingInBaseCurrency = budgetInBaseCurrency - spentInBaseCurrency;
+      
+      // Convert remaining back to budget currency for display
+      let remainingInBudgetCurrency = remainingInBaseCurrency;
+      if (budget.currency?.code !== baseCurrency) {
+        const currencyData = currencyMap.get(budget.currency_id);
+        const rate = currencyData?.exchange_rate;
+        if (rate && rate > 0) {
+          remainingInBudgetCurrency = remainingInBaseCurrency * rate;
+        }
+      }
+
+      // Also convert spent to budget currency for display
+      let spentInBudgetCurrency = spentInBaseCurrency;
+      if (budget.currency?.code !== baseCurrency) {
+        const currencyData = currencyMap.get(budget.currency_id);
+        const rate = currencyData?.exchange_rate;
+        if (rate && rate > 0) {
+          spentInBudgetCurrency = spentInBaseCurrency * rate;
+        }
+      }
+
+      const percentage = budgetInBaseCurrency > 0 ? (spentInBaseCurrency / budgetInBaseCurrency) * 100 : 0;
+      const isExceeded = spentInBaseCurrency > budgetInBaseCurrency;
       const isNearLimit = percentage >= (budget.alert_threshold || 80);
 
       enrichedBudgets.push({
         ...budget,
-        spent,
-        remaining,
+        spent: spentInBudgetCurrency, // Return spent in budget currency
+        remaining: remainingInBudgetCurrency, // Return remaining in budget currency
         percentage: Math.min(percentage, 100),
         isExceeded,
         isNearLimit,

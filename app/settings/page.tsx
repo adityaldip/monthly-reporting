@@ -20,6 +20,11 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Form loading states
+  const [currencySubmitting, setCurrencySubmitting] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [budgetSubmitting, setBudgetSubmitting] = useState(false);
+
   // Currency form
   const [showCurrencyForm, setShowCurrencyForm] = useState(false);
   const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
@@ -144,8 +149,11 @@ export default function SettingsPage() {
 
   const handleCurrencySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currencySubmitting) return; // Prevent double submission
+    
     setError('');
     setSuccess('');
+    setCurrencySubmitting(true);
 
     try {
       const url = editingCurrency
@@ -171,6 +179,7 @@ export default function SettingsPage() {
           text: data.error || t.common.error,
         });
         setError(data.error || t.common.error);
+        setCurrencySubmitting(false);
         return;
       }
 
@@ -190,16 +199,27 @@ export default function SettingsPage() {
         is_default: false,
         exchange_rate: 1.0,
       });
+      setCurrencySubmitting(false);
       loadData();
     } catch (err) {
+      console.error('Error submitting currency:', err);
+      Swal.fire({
+        icon: 'error',
+        title: t.common.error,
+        text: t.common.error,
+      });
       setError(t.common.error);
+      setCurrencySubmitting(false);
     }
   };
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (categorySubmitting) return; // Prevent double submission
+    
     setError('');
     setSuccess('');
+    setCategorySubmitting(true);
 
     try {
       const url = editingCategory
@@ -225,6 +245,7 @@ export default function SettingsPage() {
           text: data.error || t.common.error,
         });
         setError(data.error || t.common.error);
+        setCategorySubmitting(false);
         return;
       }
 
@@ -244,9 +265,17 @@ export default function SettingsPage() {
         color: '#3B82F6',
         is_default: false,
       });
+      setCategorySubmitting(false);
       loadData();
     } catch (err) {
+      console.error('Error submitting category:', err);
+      Swal.fire({
+        icon: 'error',
+        title: t.common.error,
+        text: t.common.error,
+      });
       setError(t.common.error);
+      setCategorySubmitting(false);
     }
   };
 
@@ -461,8 +490,11 @@ export default function SettingsPage() {
   // Budget functions
   const handleBudgetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (budgetSubmitting) return; // Prevent double submission
+    
     setError('');
     setSuccess('');
+    setBudgetSubmitting(true);
 
     // Validate and parse amount
     const amountValue = parseFloat(budgetForm.amount);
@@ -472,6 +504,7 @@ export default function SettingsPage() {
         title: 'Error!',
         text: 'Amount harus lebih dari 0',
       });
+      setBudgetSubmitting(false);
       return;
     }
 
@@ -486,6 +519,7 @@ export default function SettingsPage() {
         title: 'Error!',
         text: 'Alert threshold harus antara 0 dan 100',
       });
+      setBudgetSubmitting(false);
       return;
     }
 
@@ -536,13 +570,16 @@ export default function SettingsPage() {
           currency_id: '',
           alert_threshold: '80',
         });
+        setBudgetSubmitting(false);
         loadData();
       } catch (err) {
+        console.error('Error updating budget:', err);
         Swal.fire({
           icon: 'error',
           title: t.common.error,
           text: t.common.error,
         });
+        setBudgetSubmitting(false);
       }
       return;
     }
@@ -556,6 +593,7 @@ export default function SettingsPage() {
         title: t.common.error,
         text: t.common.error,
       });
+      setBudgetSubmitting(false);
       return;
     }
 
@@ -593,6 +631,7 @@ export default function SettingsPage() {
           title: t.common.error,
           text: errors[0]?.error || t.common.error,
         });
+        setBudgetSubmitting(false);
         return;
       }
 
@@ -624,13 +663,16 @@ export default function SettingsPage() {
         currency_id: '',
         alert_threshold: '80',
       });
+      setBudgetSubmitting(false);
       loadData();
     } catch (err) {
+      console.error('Error creating budgets:', err);
       Swal.fire({
         icon: 'error',
         title: t.common.error,
         text: t.common.error,
       });
+      setBudgetSubmitting(false);
     }
   };
 
@@ -1133,15 +1175,23 @@ export default function SettingsPage() {
                           setShowCurrencyForm(false);
                           setEditingCurrency(null);
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                        disabled={currencySubmitting}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t.common.cancel}
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                        disabled={currencySubmitting}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
-                        {t.common.save}
+                        {currencySubmitting && (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        {currencySubmitting ? t.common.loading : t.common.save}
                       </button>
                     </div>
                   </form>
@@ -1253,15 +1303,23 @@ export default function SettingsPage() {
                           setShowCategoryForm(false);
                           setEditingCategory(null);
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                        disabled={categorySubmitting}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t.common.cancel}
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                        disabled={categorySubmitting}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
-                        {t.common.save}
+                        {categorySubmitting && (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        {categorySubmitting ? t.common.loading : t.common.save}
                       </button>
                     </div>
                   </form>
@@ -1610,15 +1668,23 @@ export default function SettingsPage() {
                         setShowBudgetForm(false);
                         setEditingBudget(null);
                       }}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                      disabled={budgetSubmitting}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {t.common.cancel}
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                      disabled={budgetSubmitting}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      {t.common.save}
+                      {budgetSubmitting && (
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
+                      {budgetSubmitting ? t.common.loading : t.common.save}
                     </button>
                   </div>
                 </form>

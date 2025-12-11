@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useI18n } from '@/lib/i18n/context';
+import { useCurrency } from '@/lib/currency/context';
 
 export default function Navbar() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { t, language, setLanguage } = useI18n();
+  const { selectedCurrency, setSelectedCurrency, currencies } = useCurrency();
 
   const handleLogout = async () => {
     setLoading(true);
@@ -67,6 +69,12 @@ export default function Navbar() {
                 {t.nav.reports}
               </Link>
               <Link
+                href="/goals"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition ${isActive('/goals')}`}
+              >
+                {t.nav.goals}
+              </Link>
+              <Link
                 href="/settings"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition ${isActive('/settings')}`}
               >
@@ -77,6 +85,21 @@ export default function Navbar() {
           
           {/* Desktop Right Side */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* Currency Selector */}
+            {currencies.length > 0 && (
+              <select
+                value={selectedCurrency}
+                onChange={(e) => setSelectedCurrency(e.target.value)}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
+                aria-label="Select currency"
+              >
+                {currencies.map((curr) => (
+                  <option key={curr.id} value={curr.code}>
+                    {curr.code} {curr.is_default && '(Default)'}
+                  </option>
+                ))}
+              </select>
+            )}
             {/* Language Selector */}
             <select
               value={language}
@@ -104,6 +127,20 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center space-x-2">
+            {currencies.length > 0 && (
+              <select
+                value={selectedCurrency}
+                onChange={(e) => setSelectedCurrency(e.target.value)}
+                className="px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
+                aria-label="Select currency"
+              >
+                {currencies.map((curr) => (
+                  <option key={curr.id} value={curr.code}>
+                    {curr.code}
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
@@ -155,6 +192,13 @@ export default function Navbar() {
                 className={`px-3 py-2 rounded-md text-sm font-medium transition ${isActive('/reports')}`}
               >
                 {t.nav.reports}
+              </Link>
+              <Link
+                href="/goals"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition ${isActive('/goals')}`}
+              >
+                {t.nav.goals}
               </Link>
               <Link
                 href="/settings"

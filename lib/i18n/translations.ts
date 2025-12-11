@@ -26,6 +26,7 @@ export interface Translations {
     dashboard: string;
     transactions: string;
     reports: string;
+    goals: string;
     profile: string;
     settings: string;
     logout: string;
@@ -267,6 +268,43 @@ export interface Translations {
     budgetVsActual: string;
     progress: string;
   };
+
+  // Goals
+  goals: {
+    title: string;
+    subtitle: string;
+    addGoal: string;
+    editGoal: string;
+    deleteGoal: string;
+    goalTitle: string;
+    description: string;
+    targetAmount: string;
+    currentAmount: string;
+    currency: string;
+    deadline: string;
+    status: string;
+    progress: string;
+    daysRemaining: string;
+    daysOverdue: string;
+    noDeadline: string;
+    active: string;
+    completed: string;
+    cancelled: string;
+    noGoals: string;
+    filterAll: string;
+    filterActive: string;
+    filterCompleted: string;
+    filterCancelled: string;
+    confirmDelete: string;
+    goalCreated: string;
+    goalUpdated: string;
+    goalDeleted: string;
+    updateProgress: string;
+    markCompleted: string;
+    markCancelled: string;
+    reactivate: string;
+    overdue: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -293,6 +331,7 @@ export const translations: Record<Language, Translations> = {
       dashboard: 'Dashboard',
       transactions: 'Transaksi',
       reports: 'Laporan',
+      goals: 'Target Tabungan',
       profile: 'Profil',
       settings: 'Pengaturan',
       logout: 'Keluar',
@@ -495,6 +534,41 @@ export const translations: Record<Language, Translations> = {
       budgetVsActual: 'Budget vs Aktual',
       progress: 'Progress',
     },
+    goals: {
+      title: 'Target Tabungan',
+      subtitle: 'Kelola target tabungan dan lacak progres Anda',
+      addGoal: 'Tambah Target',
+      editGoal: 'Edit Target',
+      deleteGoal: 'Hapus Target',
+      goalTitle: 'Judul Target',
+      description: 'Deskripsi',
+      targetAmount: 'Jumlah Target',
+      currentAmount: 'Jumlah Saat Ini',
+      currency: 'Mata Uang',
+      deadline: 'Deadline',
+      status: 'Status',
+      progress: 'Progres',
+      daysRemaining: 'Hari Tersisa',
+      daysOverdue: 'Hari Terlambat',
+      noDeadline: 'Tidak ada deadline',
+      active: 'Aktif',
+      completed: 'Selesai',
+      cancelled: 'Dibatalkan',
+      noGoals: 'Belum ada target. Tambahkan target tabungan untuk mulai melacak progres Anda.',
+      filterAll: 'Semua',
+      filterActive: 'Aktif',
+      filterCompleted: 'Selesai',
+      filterCancelled: 'Dibatalkan',
+      confirmDelete: 'Apakah Anda yakin ingin menghapus target ini?',
+      goalCreated: 'Target berhasil dibuat',
+      goalUpdated: 'Target berhasil diperbarui',
+      goalDeleted: 'Target berhasil dihapus',
+      updateProgress: 'Perbarui Progres',
+      markCompleted: 'Tandai Selesai',
+      markCancelled: 'Tandai Dibatalkan',
+      reactivate: 'Aktifkan Kembali',
+      overdue: 'Terlambat',
+    },
     reports: {
       title: 'Laporan',
       subtitle: 'Analisis keuangan bulanan Anda',
@@ -542,6 +616,7 @@ export const translations: Record<Language, Translations> = {
       dashboard: 'Dashboard',
       transactions: 'Transactions',
       reports: 'Reports',
+      goals: 'Savings Goals',
       profile: 'Profile',
       settings: 'Settings',
       logout: 'Logout',
@@ -766,6 +841,41 @@ export const translations: Record<Language, Translations> = {
       confirmDeleteBudget: 'Are you sure you want to delete this budget?',
       budgetVsActual: 'Budget vs Actual',
       progress: 'Progress',
+    },
+    goals: {
+      title: 'Savings Goals',
+      subtitle: 'Manage your savings goals and track your progress',
+      addGoal: 'Add Goal',
+      editGoal: 'Edit Goal',
+      deleteGoal: 'Delete Goal',
+      goalTitle: 'Goal Title',
+      description: 'Description',
+      targetAmount: 'Target Amount',
+      currentAmount: 'Current Amount',
+      currency: 'Currency',
+      deadline: 'Deadline',
+      status: 'Status',
+      progress: 'Progress',
+      daysRemaining: 'Days Remaining',
+      daysOverdue: 'Days Overdue',
+      noDeadline: 'No deadline',
+      active: 'Active',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      noGoals: 'No goals yet. Add savings goals to start tracking your progress.',
+      filterAll: 'All',
+      filterActive: 'Active',
+      filterCompleted: 'Completed',
+      filterCancelled: 'Cancelled',
+      confirmDelete: 'Are you sure you want to delete this goal?',
+      goalCreated: 'Goal created successfully',
+      goalUpdated: 'Goal updated successfully',
+      goalDeleted: 'Goal deleted successfully',
+      updateProgress: 'Update Progress',
+      markCompleted: 'Mark Completed',
+      markCancelled: 'Mark Cancelled',
+      reactivate: 'Reactivate',
+      overdue: 'Overdue',
     },
   },
 };

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useI18n } from '@/lib/i18n/context';
+import { useCurrency } from '@/lib/currency/context';
 import {
   LineChart,
   Line,
@@ -84,53 +85,15 @@ const COLORS = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'
 
 export default function ReportsPage() {
   const { t } = useI18n();
+  const { selectedCurrency, currencies } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState<ReportsData | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [currencies, setCurrencies] = useState<any[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
-
-  useEffect(() => {
-    loadCurrencies();
-  }, []);
-
-  useEffect(() => {
-    // Load saved currency preference from localStorage
-    const savedCurrency = localStorage.getItem('reportsDisplayCurrency');
-    if (savedCurrency && currencies.length > 0) {
-      const currencyExists = currencies.find((c) => c.code === savedCurrency);
-      if (currencyExists) {
-        setSelectedCurrency(savedCurrency);
-      } else if (currencies.length > 0) {
-        // Use default currency if saved currency doesn't exist
-        const defaultCurrency = currencies.find((c) => c.is_default);
-        setSelectedCurrency(defaultCurrency?.code || currencies[0]?.code || '');
-      }
-    } else if (currencies.length > 0 && !selectedCurrency) {
-      // Set default currency if no saved preference
-      const defaultCurrency = currencies.find((c) => c.is_default);
-      setSelectedCurrency(defaultCurrency?.code || currencies[0]?.code || '');
-    }
-  }, [currencies]);
 
   useEffect(() => {
     loadReportsData();
-  }, [selectedYear, selectedMonth]);
-
-  const loadCurrencies = async () => {
-    try {
-      const response = await fetch('/api/currencies', {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setCurrencies(data.currencies || []);
-      }
-    } catch (err) {
-      console.error('Failed to load currencies:', err);
-    }
-  };
+  }, [selectedYear, selectedMonth, selectedCurrency]);
 
   const loadReportsData = async () => {
     setLoading(true);
@@ -194,11 +157,6 @@ export default function ReportsPage() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(convertedAmount);
-  };
-
-  const handleCurrencyChange = (currencyCode: string) => {
-    setSelectedCurrency(currencyCode);
-    localStorage.setItem('reportsDisplayCurrency', currencyCode);
   };
 
   const formatPercent = (value: number) => {
@@ -288,19 +246,6 @@ export default function ReportsPage() {
                 </option>
               ))}
             </select>
-            {currencies.length > 0 && (
-              <select
-                value={selectedCurrency}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 bg-white"
-              >
-                {currencies.map((currency) => (
-                  <option key={currency.id} value={currency.code}>
-                    {currency.code} {currency.is_default && '(Default)'}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
 
