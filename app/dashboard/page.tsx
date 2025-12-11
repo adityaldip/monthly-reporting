@@ -21,6 +21,16 @@ export default function DashboardPage() {
     balance: 0,
     currency: 'IDR',
     baseCurrency: 'IDR',
+    thisMonthIncome: 0,
+    outcomeToday: 0,
+    outcomeThisWeek: 0,
+    outcomeThisMonth: 0,
+    dateInfo: {
+      today: '',
+      startOfWeek: '',
+      startOfMonth: '',
+      endOfMonth: '',
+    },
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'income' | 'outcome' | undefined>(undefined);
@@ -97,6 +107,16 @@ export default function DashboardPage() {
                 balance: data.balance || 0,
                 currency: data.currency || 'IDR',
                 baseCurrency: data.baseCurrency || 'IDR',
+                thisMonthIncome: data.thisMonthIncome || 0,
+                outcomeToday: data.outcomeToday || 0,
+                outcomeThisWeek: data.outcomeThisWeek || 0,
+                outcomeThisMonth: data.outcomeThisMonth || 0,
+                dateInfo: data.dateInfo || {
+                  today: '',
+                  startOfWeek: '',
+                  startOfMonth: '',
+                  endOfMonth: '',
+                },
               });
             }
             setStatsLoading(false);
@@ -208,8 +228,25 @@ export default function DashboardPage() {
         )}
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{t.dashboard.title}</h1>
-          <p className="mt-2 text-gray-600">{t.dashboard.subtitle}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{t.dashboard.title}</h1>
+              <p className="mt-2 text-gray-600">{t.dashboard.subtitle}</p>
+            </div>
+            {stats.dateInfo.today && (
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-500">{t.dashboard.today}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {new Date(stats.dateInfo.today).toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -309,6 +346,148 @@ export default function DashboardPage() {
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
+        </div>
+
+        {/* Additional Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {statsLoading ? (
+            <div className="col-span-4 text-center text-gray-500 py-8">{t.common.loading}</div>
+          ) : (
+            <>
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#10B981] hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t.dashboard.thisMonthIncome}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: stats.currency || 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  }).format(stats.thisMonthIncome)}
+                </p>
+              </div>
+              <div className="bg-green-100 rounded-full p-3">
+                <svg
+                  className="w-6 h-6 text-[#10B981]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#EF4444] hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600">{t.dashboard.outcomeToday}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: stats.currency || 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  }).format(stats.outcomeToday)}
+                </p>
+                {stats.dateInfo.today && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(stats.dateInfo.today).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </p>
+                )}
+              </div>
+              <div className="bg-red-100 rounded-full p-3">
+                <svg
+                  className="w-6 h-6 text-[#EF4444]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#EF4444] hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t.dashboard.outcomeThisWeek}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: stats.currency || 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  }).format(stats.outcomeThisWeek)}
+                </p>
+              </div>
+              <div className="bg-red-100 rounded-full p-3">
+                <svg
+                  className="w-6 h-6 text-[#EF4444]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 border-l-4 border-[#EF4444] hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t.dashboard.outcomeThisMonth}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: stats.currency || 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  }).format(stats.outcomeThisMonth)}
+                </p>
+              </div>
+              <div className="bg-red-100 rounded-full p-3">
+                <svg
+                  className="w-6 h-6 text-[#EF4444]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
               </div>

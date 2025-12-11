@@ -59,6 +59,11 @@ export interface Translations {
     warningNoCurrencyAndCategory: string;
     warningAddInSettings: string;
     warningToStartTransaction: string;
+    thisMonthIncome: string;
+    outcomeToday: string;
+    outcomeThisWeek: string;
+    outcomeThisMonth: string;
+    today: string;
   };
 
   // Transactions
@@ -362,6 +367,11 @@ export const translations: Record<Language, Translations> = {
       amount: 'Jumlah',
       amountOriginal: 'Jumlah (Original)',
       amountConverted: 'Jumlah',
+      thisMonthIncome: 'Pemasukan Bulan Ini',
+      outcomeToday: 'Pengeluaran Hari Ini',
+      outcomeThisWeek: 'Pengeluaran Minggu Ini',
+      outcomeThisMonth: 'Pengeluaran Bulan Ini',
+      today: 'Hari Ini',
     },
     transactions: {
       title: 'Transaksi',
@@ -647,6 +657,11 @@ export const translations: Record<Language, Translations> = {
       amount: 'Amount',
       amountOriginal: 'Amount (Original)',
       amountConverted: 'Amount',
+      thisMonthIncome: 'This Month Income',
+      outcomeToday: 'Outcome Today',
+      outcomeThisWeek: 'Outcome This Week',
+      outcomeThisMonth: 'Outcome This Month',
+      today: 'Today',
     },
     transactions: {
       title: 'Transactions',

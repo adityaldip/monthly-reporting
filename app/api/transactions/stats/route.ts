@@ -168,6 +168,146 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Calculate additional stats: this month income, outcome today, this week, this month
+    // Use UTC to avoid timezone issues
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const todayStr = todayUTC.toISOString().split('T')[0];
+    
+    // Also get local date string for display
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayLocalStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+    
+    // Get start of week (Monday) - using local time
+    const startOfWeek = new Date(todayLocal);
+    const dayOfWeek = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeekStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
+    
+    // Get start of month - using local time
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonthStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-${String(startOfMonth.getDate()).padStart(2, '0')}`;
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const endOfMonthStr = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfMonth.getDate()).padStart(2, '0')}`;
+
+    // Fetch transactions for additional stats
+    let todayTxData: any[] = [];
+    let weekTxData: any[] = [];
+    let monthTxData: any[] = [];
+
+    try {
+      const [todayResult, weekResult, monthResult] = await Promise.all([
+        // Today transactions - use range query to ensure we get all transactions for today
+        // This handles timezone issues better than .eq()
+        supabase
+          .from('transactions')
+          .select('type, amount, currency, currency_id')
+          .eq('user_id', user.id)
+          .gte('date', todayLocalStr)
+          .lte('date', todayLocalStr),
+        // This week transactions
+        supabase
+          .from('transactions')
+          .select('type, amount, currency, currency_id')
+          .eq('user_id', user.id)
+          .gte('date', startOfWeekStr)
+          .lte('date', todayLocalStr),
+        // This month transactions
+        supabase
+          .from('transactions')
+          .select('type, amount, currency, currency_id')
+          .eq('user_id', user.id)
+          .gte('date', startOfMonthStr)
+          .lte('date', endOfMonthStr),
+      ]);
+      
+      todayTxData = todayResult.data || [];
+      weekTxData = weekResult.data || [];
+      monthTxData = monthResult.data || [];
+    } catch (err) {
+      // If additional stats fail, continue with empty data
+      console.error('Error fetching additional stats:', err);
+    }
+
+    // Helper function to calculate outcome in base currency
+    const calculateOutcome = (txs: any[]) => {
+      let outcomeBase = 0;
+      txs?.forEach((tx) => {
+        if (tx.type === 'outcome') {
+          let currencyCode = baseCurrency;
+          if (tx.currency_id) {
+            const currencyData = currencyMap.get(tx.currency_id);
+            currencyCode = currencyData?.code || baseCurrency;
+          } else if (tx.currency) {
+            currencyCode = tx.currency;
+          }
+
+          const amount = parseFloat(tx.amount.toString());
+          if (currencyCode === baseCurrency) {
+            outcomeBase += amount;
+          } else {
+            const currencyData = currencyMap.get(currencyCode);
+            const rate = currencyData?.exchange_rate;
+            if (rate && rate > 0) {
+              outcomeBase += amount / rate;
+            }
+          }
+        }
+      });
+      return outcomeBase;
+    };
+
+    // Helper function to calculate income in base currency
+    const calculateIncome = (txs: any[]) => {
+      let incomeBase = 0;
+      txs?.forEach((tx) => {
+        if (tx.type === 'income') {
+          let currencyCode = baseCurrency;
+          if (tx.currency_id) {
+            const currencyData = currencyMap.get(tx.currency_id);
+            currencyCode = currencyData?.code || baseCurrency;
+          } else if (tx.currency) {
+            currencyCode = tx.currency;
+          }
+
+          const amount = parseFloat(tx.amount.toString());
+          if (currencyCode === baseCurrency) {
+            incomeBase += amount;
+          } else {
+            const currencyData = currencyMap.get(currencyCode);
+            const rate = currencyData?.exchange_rate;
+            if (rate && rate > 0) {
+              incomeBase += amount / rate;
+            }
+          }
+        }
+      });
+      return incomeBase;
+    };
+
+    let outcomeTodayBase = calculateOutcome(todayTxData);
+    let outcomeThisWeekBase = calculateOutcome(weekTxData);
+    let outcomeThisMonthBase = calculateOutcome(monthTxData);
+    let thisMonthIncomeBase = calculateIncome(monthTxData);
+
+    // Convert to display currency if needed
+    let outcomeToday = outcomeTodayBase;
+    let outcomeThisWeek = outcomeThisWeekBase;
+    let outcomeThisMonth = outcomeThisMonthBase;
+    let thisMonthIncome = thisMonthIncomeBase;
+
+    if (displayCurrency && displayCurrency !== baseCurrency) {
+      const displayCurrencyData = currencyMap.get(displayCurrency);
+      if (displayCurrencyData && displayCurrencyData.exchange_rate > 0) {
+        outcomeToday = outcomeTodayBase * displayCurrencyData.exchange_rate;
+        outcomeThisWeek = outcomeThisWeekBase * displayCurrencyData.exchange_rate;
+        outcomeThisMonth = outcomeThisMonthBase * displayCurrencyData.exchange_rate;
+        thisMonthIncome = thisMonthIncomeBase * displayCurrencyData.exchange_rate;
+      }
+    }
+
     return NextResponse.json({
       totalIncome,
       totalOutcome,
@@ -177,6 +317,18 @@ export async function GET(request: NextRequest) {
       period: {
         month: month || new Date().getMonth() + 1,
         year: year || new Date().getFullYear(),
+      },
+      // Additional stats
+      thisMonthIncome,
+      outcomeToday,
+      outcomeThisWeek,
+      outcomeThisMonth,
+      // Date info for display
+      dateInfo: {
+        today: todayLocalStr,
+        startOfWeek: startOfWeekStr,
+        startOfMonth: startOfMonthStr,
+        endOfMonth: endOfMonthStr,
       },
     });
   } catch (error) {
