@@ -10,7 +10,7 @@ import { useCurrency } from '@/lib/currency/context';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
@@ -237,7 +237,7 @@ export default function DashboardPage() {
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-500">{t.dashboard.today}</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {new Date(stats.dateInfo.today).toLocaleDateString('id-ID', {
+                  {new Date(stats.dateInfo.today).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
@@ -355,6 +355,13 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Separator */}
+        <div className="my-8 flex items-center">
+          <div className="flex-1 border-t border-gray-300"></div>
+          <div className="px-4 text-sm text-gray-500 font-medium">{t.dashboard.additionalStats}</div>
+          <div className="flex-1 border-t border-gray-300"></div>
+        </div>
+
         {/* Additional Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {statsLoading ? (
@@ -406,7 +413,7 @@ export default function DashboardPage() {
                 </p>
                 {stats.dateInfo.today && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {new Date(stats.dateInfo.today).toLocaleDateString('id-ID', {
+                    {new Date(stats.dateInfo.today).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -674,7 +681,7 @@ export default function DashboardPage() {
                     {recentTransactions.map((tx) => (
                       <tr key={tx.id}>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(tx.date).toLocaleDateString('id-ID', {
+                          {new Date(tx.date).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric',
