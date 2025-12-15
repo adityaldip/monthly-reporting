@@ -13,8 +13,10 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('id');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     // Load saved language preference from localStorage
     const savedLanguage = localStorage.getItem('appLanguage') as Language;
     if (savedLanguage && (savedLanguage === 'id' || savedLanguage === 'en')) {
@@ -36,9 +38,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
 
   const value: I18nContextType = {
-    language,
+    language: mounted ? language : 'id', // Prevent hydration mismatch
     setLanguage,
-    t: translations[language],
+    t: translations[mounted ? language : 'id'],
   };
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

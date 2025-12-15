@@ -6,7 +6,9 @@ import { TransactionType } from '@/types/transaction';
 import { supabase } from '@/lib/supabase/client';
 import { Currency } from '@/types/currency';
 import { Category } from '@/types/category';
+import { Account } from '@/types/account';
 import { useI18n } from '@/lib/i18n/context';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils/currency';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -17,24 +19,27 @@ interface TransactionModalProps {
 }
 
 export default function TransactionModal({ isOpen, onClose, type, transactionId, onSuccess }: TransactionModalProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [formData, setFormData] = useState({
     type: type || ('income' as TransactionType),
     amount: '',
     currency_id: '',
     description: '',
     category_id: '',
+    account_id: '',
     date: new Date().toISOString().split('T')[0],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadCurrencies();
+      loadAccounts();
       
       if (transactionId) {
         // Edit mode: load transaction data
@@ -48,6 +53,7 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
           currency_id: '',
           description: '',
           category_id: '',
+          account_id: '',
           date: new Date().toISOString().split('T')[0],
         });
         setError('');
@@ -70,12 +76,14 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
       
       if (response.ok && data.transaction) {
         const tx = data.transaction;
+        const locale = language === 'en' ? 'en-US' : 'id-ID';
         setFormData({
           type: tx.type,
-          amount: tx.amount.toString(),
+          amount: formatCurrencyInput(tx.amount.toString(), locale),
           currency_id: tx.currency_id || '',
           description: tx.description || '',
           category_id: tx.category_id || '',
+          account_id: tx.account_id || '',
           date: tx.date.split('T')[0],
         });
         // Load categories for the transaction type
@@ -105,6 +113,25 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
       }
     } catch (err) {
       console.error('Failed to load currencies:', err);
+    }
+  };
+
+  const loadAccounts = async () => {
+    try {
+      const response = await fetch('/api/accounts', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAccounts(data.accounts || []);
+        // Set default account if available
+        const defaultAccount = data.accounts?.find((a: Account) => a.is_default);
+        if (defaultAccount) {
+          setFormData(prev => ({ ...prev, account_id: defaultAccount.id }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load accounts:', err);
     }
   };
 
@@ -149,10 +176,11 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
         credentials: 'include', // Include cookies
         body: JSON.stringify({
           type: formData.type,
-          amount: parseFloat(formData.amount),
-          currency_id: formData.currency_id,
+          amount: parseCurrencyInput(formData.amount, language === 'en' ? 'en-US' : 'id-ID'),
+          currency_id: formData.currency_id || undefined,
           description: formData.description || undefined,
           category_id: formData.category_id,
+          account_id: formData.account_id || undefined,
           date: formData.date,
         }),
       });
@@ -312,8 +340,7 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
                     <option value="">{t.transactions.selectCategory}</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
-                        {cat.icon && <span>{cat.icon} </span>}
-                        {cat.name}
+                        {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                       </option>
                     ))}
                   </select>
@@ -328,11 +355,14 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
                   </label>
                   <input
                     id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onChange={(e) => {
+                      const locale = language === 'en' ? 'en-US' : 'id-ID';
+                      const formatted = formatCurrencyInput(e.target.value, locale);
+                      setFormData({ ...formData, amount: formatted });
+                    }}
                     required
                     placeholder="0.00"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
@@ -363,6 +393,32 @@ export default function TransactionModal({ isOpen, onClose, type, transactionId,
                     </select>
                   )}
                 </div>
+              </div>
+
+              {/* Account */}
+              <div>
+                <label htmlFor="account" className="block text-sm font-medium text-gray-900 mb-1">
+                  {t.settings.accounts} <span className="text-gray-500 text-xs">(Opsional)</span>
+                </label>
+                {loadingData ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                    {t.common.loading}
+                  </div>
+                ) : (
+                  <select
+                    id="account"
+                    value={formData.account_id}
+                    onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                  >
+                    <option value="">Pilih {t.settings.accounts}</option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} {acc.currency && `(${acc.currency.code})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Date */}

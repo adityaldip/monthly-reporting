@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month');
     const year = searchParams.get('year');
 
-    // Get transactions
+    // Get transactions (ensure account_id is included)
     let query = supabase
       .from('transactions')
       .select('*')
@@ -62,9 +62,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Optimize: Batch fetch all currencies and categories instead of N+1 queries
+    // Debug: Check if account_id exists in raw transactions
+    if (transactions && transactions.length > 0) {
+      const txWithAccountId = transactions.find((tx: any) => tx.account_id);
+      if (txWithAccountId) {
+        console.log('Sample transaction with account_id:', {
+          id: txWithAccountId.id,
+          account_id: txWithAccountId.account_id,
+          account_id_type: typeof txWithAccountId.account_id
+        });
+      }
+    }
+
+    // Optimize: Batch fetch all currencies, categories, and accounts instead of N+1 queries
     const currencyIds = [...new Set((transactions || []).filter(tx => tx.currency_id).map(tx => tx.currency_id))];
     const categoryIds = [...new Set((transactions || []).filter(tx => tx.category_id).map(tx => tx.category_id))];
+    const accountIds = [...new Set((transactions || []).filter(tx => {
+      const accountId = (tx as any).account_id;
+      return accountId && accountId !== null && accountId !== '' && accountId !== undefined;
+    }).map(tx => (tx as any).account_id))];
+    
+    // Debug: log account IDs found
+    console.log(`Found ${accountIds.length} unique account IDs in ${transactions?.length || 0} transactions:`, accountIds);
 
     // Batch fetch currencies
     const currencyMap = new Map();
@@ -94,7 +113,87 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Enrich transactions with currency and category info from maps
+    // Batch fetch accounts
+    const accountMap = new Map();
+    if (accountIds.length > 0) {
+      console.log(`[ACCOUNTS] Fetching accounts for IDs:`, accountIds, `for user:`, user.id);
+      
+      // First, try to fetch all accounts for this user to see what exists
+      const { data: allUserAccounts, error: allUserAccountsError } = await supabase
+        .from('accounts')
+        .select('id, name, account_number, type, user_id')
+        .eq('user_id', user.id);
+      
+      if (allUserAccountsError) {
+        console.error('[ACCOUNTS] Error fetching all user accounts:', allUserAccountsError);
+      } else {
+        console.log(`[ACCOUNTS] User has ${allUserAccounts?.length || 0} total accounts:`, allUserAccounts?.map(a => ({ id: a.id, name: a.name })));
+      }
+      
+      // Now fetch specific accounts by IDs
+      const { data: accountsData, error: accountsError } = await supabase
+        .from('accounts')
+        .select('id, name, account_number, type')
+        .in('id', accountIds)
+        .eq('user_id', user.id);
+      
+      console.log(`[ACCOUNTS] Query result - error:`, accountsError, `data length:`, accountsData?.length || 0);
+      
+      if (accountsError) {
+        console.error('[ACCOUNTS] Error fetching accounts:', accountsError);
+        console.error('[ACCOUNTS] Error details:', JSON.stringify(accountsError, null, 2));
+        // Don't return error, just log it - transactions can still be returned without account info
+      } else if (accountsData && accountsData.length > 0) {
+        console.log(`[ACCOUNTS] Successfully fetched ${accountsData.length} accounts:`, accountsData.map(a => ({ id: a.id, name: a.name })));
+        accountsData.forEach((acc) => {
+          // Store with both string and original ID as key to handle type mismatches
+          const accIdStr = String(acc.id);
+          accountMap.set(accIdStr, acc);
+          accountMap.set(acc.id, acc); // Also store with original type
+          // Also try with trimmed string in case of whitespace issues
+          accountMap.set(accIdStr.trim(), acc);
+        });
+        
+        // Debug: log account mapping
+        console.log(`[ACCOUNTS] Account map now has ${accountMap.size} entries. Keys:`, Array.from(accountMap.keys()).slice(0, 10));
+      } else {
+        // No data returned or empty array
+        console.warn('[ACCOUNTS] No accounts data returned for account IDs:', accountIds);
+        console.warn('[ACCOUNTS] accountsData value:', accountsData);
+        console.warn('[ACCOUNTS] accountsData type:', typeof accountsData, Array.isArray(accountsData));
+        
+        // Check if the account IDs match any user accounts
+        if (allUserAccounts && allUserAccounts.length > 0) {
+          const matchingAccounts = allUserAccounts.filter(acc => accountIds.includes(String(acc.id)) || accountIds.includes(acc.id));
+          console.log(`[ACCOUNTS] Found ${matchingAccounts.length} matching accounts from all user accounts:`, matchingAccounts.map(a => ({ id: a.id, name: a.name })));
+          
+          if (matchingAccounts.length > 0) {
+            // Use the matching accounts even though the query didn't return them
+            console.warn('[ACCOUNTS] Using accounts from allUserAccounts query instead');
+            matchingAccounts.forEach((acc) => {
+              const accIdStr = String(acc.id);
+              accountMap.set(accIdStr, { id: acc.id, name: acc.name, account_number: acc.account_number, type: acc.type });
+              accountMap.set(acc.id, { id: acc.id, name: acc.name, account_number: acc.account_number, type: acc.type });
+              accountMap.set(accIdStr.trim(), { id: acc.id, name: acc.name, account_number: acc.account_number, type: acc.type });
+            });
+            console.log(`[ACCOUNTS] Account map now has ${accountMap.size} entries after fallback`);
+          } else {
+            const missingIds = accountIds.filter(id => {
+              const idStr = String(id);
+              return !allUserAccounts?.some(acc => String(acc.id) === idStr || acc.id === id);
+            });
+            if (missingIds.length > 0) {
+              console.warn('[ACCOUNTS] Account IDs not found in user accounts:', missingIds);
+              console.warn('[ACCOUNTS] These account IDs are in transactions but not in accounts table for this user');
+            }
+          }
+        }
+      }
+    } else {
+      console.log('[ACCOUNTS] No account IDs to fetch');
+    }
+
+    // Enrich transactions with currency, category, and account info from maps
     const enrichedTransactions = (transactions || []).map((tx: any) => {
       const enriched: any = { ...tx };
 
@@ -108,8 +207,50 @@ export async function GET(request: NextRequest) {
         enriched.category = categoryMap.get(tx.category_id);
       }
 
+      // Get account info from map
+      const accountId = (tx as any).account_id;
+      if (accountId) {
+        // Convert to string for comparison (in case of UUID type mismatch)
+        const accountIdStr = String(accountId).trim();
+        let foundAccount = null;
+        
+        // Try multiple matching strategies
+        if (accountMap.has(accountIdStr)) {
+          foundAccount = accountMap.get(accountIdStr);
+        } else if (accountMap.has(accountId)) {
+          foundAccount = accountMap.get(accountId);
+        } else if (accountMap.has(String(accountId))) {
+          foundAccount = accountMap.get(String(accountId));
+        } else {
+          // Try to find by iterating (in case of type mismatch)
+          for (const [key, value] of accountMap.entries()) {
+            const keyStr = String(key).trim();
+            const valueIdStr = String(value.id).trim();
+            if (keyStr === accountIdStr || valueIdStr === accountIdStr) {
+              foundAccount = value;
+              break;
+            }
+          }
+        }
+        
+        if (foundAccount) {
+          enriched.account = foundAccount;
+          // Debug: log successful enrichment
+          if (tx.id === transactions?.[0]?.id) { // Only log for first transaction to avoid spam
+            console.log(`Successfully enriched transaction ${tx.id} with account:`, foundAccount.name);
+          }
+        } else {
+          // Debug: log if account_id exists but not found in map
+          console.warn(`Transaction ${tx.id} has account_id ${accountId} (type: ${typeof accountId}, string: "${accountIdStr}") but account not found in map. Account IDs requested: ${accountIds.join(', ')}, Account map size: ${accountMap.size}, Sample map keys:`, Array.from(accountMap.keys()).slice(0, 5));
+        }
+      }
+
       return enriched;
     });
+
+    // Debug: Check final enriched transactions
+    const enrichedWithAccount = enrichedTransactions.filter((tx: any) => tx.account);
+    console.log(`Enriched ${enrichedWithAccount.length} out of ${enrichedTransactions.length} transactions with account data`);
 
     return NextResponse.json({ transactions: enrichedTransactions }, { status: 200 });
   } catch (error) {
@@ -148,7 +289,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: TransactionCreate = await request.json();
-    const { type, amount, currency, currency_id, description, category, category_id, date } = body;
+    const { type, amount, currency, currency_id, description, category, category_id, account_id, date } = body;
 
     // Support both legacy format (currency, category) and new format (currency_id, category_id)
     const finalCurrencyId = currency_id || null;
@@ -282,6 +423,26 @@ export async function POST(request: NextRequest) {
       insertData.category = categoryName; // Populate legacy field with name from database
     } else {
       insertData.category = finalCategory;
+    }
+
+    // Add account_id if provided
+    if (account_id) {
+      // Validate account_id exists and belongs to user
+      const { data: accountData, error: accountError } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('id', account_id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (accountError || !accountData) {
+        return NextResponse.json(
+          { error: 'Account tidak ditemukan' },
+          { status: 400 }
+        );
+      }
+
+      insertData.account_id = account_id;
     }
 
     const { data, error } = await supabase

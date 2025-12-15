@@ -153,6 +153,7 @@ export interface Translations {
     subtitle: string;
     currencies: string;
     categories: string;
+    accounts: string;
     code: string;
     name: string;
     symbol: string;
@@ -169,23 +170,38 @@ export interface Translations {
     addCategory: string;
     editCategory: string;
     deleteCategory: string;
+    addAccount: string;
+    editAccount: string;
+    deleteAccount: string;
     updateRates: string;
     updatingRates: string;
     confirmDelete: string;
     confirmDeleteCurrency: string;
     confirmDeleteCategory: string;
+    confirmDeleteAccount: string;
     noCurrency: string;
     noCategory: string;
+    noAccount: string;
     base: string;
     defaultCurrencyInfo: string;
     defaultCurrencyDescription: string;
     setAsDefault: string;
     setAsDefaultCategory: string;
+    setAsDefaultAccount: string;
     codeCannotChange: string;
     selectOneOrMoreMonths: string;
     selectAll: string;
     removeAll: string;
     selectAtLeastOneMonth: string;
+    accountType: string;
+    accountNumber: string;
+    accountDescription: string;
+    accountTypeCash: string;
+    accountTypeBank: string;
+    accountTypeCreditCard: string;
+    accountTypeInvestment: string;
+    accountTypeOther: string;
+    accountHasTransactions: string;
   };
 
   // Profile
@@ -456,6 +472,7 @@ export const translations: Record<Language, Translations> = {
       subtitle: 'Kelola currency dan category Anda',
       currencies: 'Currencies',
       categories: 'Categories',
+      accounts: 'Akun',
       code: 'Code',
       name: 'Name',
       symbol: 'Symbol',
@@ -472,23 +489,38 @@ export const translations: Record<Language, Translations> = {
       addCategory: 'Tambah Category',
       editCategory: 'Edit Category',
       deleteCategory: 'Hapus',
+      addAccount: 'Tambah Akun',
+      editAccount: 'Edit Akun',
+      deleteAccount: 'Hapus',
       updateRates: '🔄 Update Exchange Rates',
       updatingRates: 'Memperbarui...',
       confirmDelete: 'Apakah Anda yakin ingin menghapus?',
       confirmDeleteCurrency: 'Apakah Anda yakin ingin menghapus currency ini?',
       confirmDeleteCategory: 'Apakah Anda yakin ingin menghapus category ini?',
+      confirmDeleteAccount: 'Apakah Anda yakin ingin menghapus akun ini?',
       noCurrency: 'Belum ada currency. Tambahkan currency pertama Anda.',
       noCategory: 'Belum ada category. Tambahkan category pertama Anda.',
+      noAccount: 'Belum ada akun. Tambahkan akun pertama Anda.',
       base: 'Base',
       defaultCurrencyInfo: 'Info: Default Currency',
       defaultCurrencyDescription: 'Anda harus mengatur satu currency sebagai default (base currency). Exchange rate untuk currency lain akan dikonversi relatif terhadap base currency ini. Base currency memiliki exchange rate 1.0.',
       setAsDefault: 'Set as default currency',
       setAsDefaultCategory: 'Set as default category',
+      setAsDefaultAccount: 'Set sebagai akun default',
       codeCannotChange: 'Code tidak dapat diubah saat edit',
       selectOneOrMoreMonths: '(Pilih satu atau lebih bulan)',
       selectAll: 'Pilih Semua',
       removeAll: 'Hapus Semua',
       selectAtLeastOneMonth: 'Pilih minimal satu bulan',
+      accountType: 'Tipe Akun',
+      accountNumber: 'Nomor Akun',
+      accountDescription: 'Deskripsi',
+      accountTypeCash: 'Tunai',
+      accountTypeBank: 'Bank',
+      accountTypeCreditCard: 'Kartu Kredit',
+      accountTypeInvestment: 'Investasi',
+      accountTypeOther: 'Lainnya',
+      accountHasTransactions: 'Account tidak dapat dihapus karena masih memiliki transaksi',
     },
     profile: {
       title: 'Profil',
@@ -747,6 +779,7 @@ export const translations: Record<Language, Translations> = {
       subtitle: 'Manage your currencies and categories',
       currencies: 'Currencies',
       categories: 'Categories',
+      accounts: 'Accounts',
       code: 'Code',
       name: 'Name',
       symbol: 'Symbol',
@@ -763,23 +796,38 @@ export const translations: Record<Language, Translations> = {
       addCategory: 'Add Category',
       editCategory: 'Edit Category',
       deleteCategory: 'Delete',
+      addAccount: 'Add Account',
+      editAccount: 'Edit Account',
+      deleteAccount: 'Delete',
       updateRates: '🔄 Update Exchange Rates',
       updatingRates: 'Updating...',
       confirmDelete: 'Are you sure you want to delete?',
       confirmDeleteCurrency: 'Are you sure you want to delete this currency?',
       confirmDeleteCategory: 'Are you sure you want to delete this category?',
+      confirmDeleteAccount: 'Are you sure you want to delete this account?',
       noCurrency: 'No currencies yet. Add your first currency.',
       noCategory: 'No categories yet. Add your first category.',
+      noAccount: 'No accounts yet. Add your first account.',
       base: 'Base',
       defaultCurrencyInfo: 'Info: Default Currency',
       defaultCurrencyDescription: 'You must set one currency as default (base currency). Exchange rates for other currencies will be converted relative to this base currency. Base currency has an exchange rate of 1.0.',
       setAsDefault: 'Set as default currency',
       setAsDefaultCategory: 'Set as default category',
+      setAsDefaultAccount: 'Set as default account',
       codeCannotChange: 'Code cannot be changed when editing',
       selectOneOrMoreMonths: '(Select one or more months)',
       selectAll: 'Select All',
       removeAll: 'Remove All',
       selectAtLeastOneMonth: 'Select at least one month',
+      accountType: 'Account Type',
+      accountNumber: 'Account Number',
+      accountDescription: 'Description',
+      accountTypeCash: 'Cash',
+      accountTypeBank: 'Bank',
+      accountTypeCreditCard: 'Credit Card',
+      accountTypeInvestment: 'Investment',
+      accountTypeOther: 'Other',
+      accountHasTransactions: 'Account cannot be deleted because it still has transactions',
     },
     profile: {
       title: 'Profile',

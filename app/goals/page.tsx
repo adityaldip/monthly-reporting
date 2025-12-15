@@ -6,9 +6,10 @@ import Navbar from '@/components/Navbar';
 import { Goal, GoalCreate } from '@/types/goal';
 import { useI18n } from '@/lib/i18n/context';
 import { useCurrency } from '@/lib/currency/context';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils/currency';
 
 export default function GoalsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { currencies } = useCurrency();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,8 @@ export default function GoalsPage() {
     currency_id: '',
     deadline: '',
   });
+  const [formattedTargetAmount, setFormattedTargetAmount] = useState('');
+  const [formattedCurrentAmount, setFormattedCurrentAmount] = useState('');
 
   useEffect(() => {
     loadGoals();
@@ -66,6 +69,7 @@ export default function GoalsPage() {
 
   const handleAddGoal = () => {
     setEditingGoal(null);
+    const locale = language === 'en' ? 'en-US' : 'id-ID';
     setGoalForm({
       title: '',
       description: '',
@@ -74,11 +78,14 @@ export default function GoalsPage() {
       currency_id: currencies.find(c => c.is_default)?.id || currencies[0]?.id || '',
       deadline: '',
     });
+    setFormattedTargetAmount('');
+    setFormattedCurrentAmount('');
     setShowGoalForm(true);
   };
 
   const handleEditGoal = (goal: Goal) => {
     setEditingGoal(goal);
+    const locale = language === 'en' ? 'en-US' : 'id-ID';
     setGoalForm({
       title: goal.title,
       description: goal.description || '',
@@ -87,6 +94,8 @@ export default function GoalsPage() {
       currency_id: goal.currency_id,
       deadline: goal.deadline || '',
     });
+    setFormattedTargetAmount(formatCurrencyInput(goal.target_amount.toString(), locale));
+    setFormattedCurrentAmount(formatCurrencyInput(goal.current_amount.toString(), locale));
     setShowGoalForm(true);
   };
 
@@ -148,7 +157,12 @@ export default function GoalsPage() {
       return;
     }
 
-    if (goalForm.target_amount <= 0) {
+    // Parse formatted amounts
+    const locale = language === 'en' ? 'en-US' : 'id-ID';
+    const targetAmount = parseCurrencyInput(formattedTargetAmount, locale);
+    const currentAmount = parseCurrencyInput(formattedCurrentAmount, locale);
+
+    if (targetAmount <= 0) {
       Swal.fire({
         icon: 'warning',
         title: t.common.warning,
@@ -156,8 +170,6 @@ export default function GoalsPage() {
       });
       return;
     }
-
-    const currentAmount = goalForm.current_amount || 0;
     if (currentAmount < 0) {
       Swal.fire({
         icon: 'warning',
@@ -167,7 +179,7 @@ export default function GoalsPage() {
       return;
     }
 
-    if (currentAmount > goalForm.target_amount) {
+    if (currentAmount > targetAmount) {
       Swal.fire({
         icon: 'warning',
         title: t.common.warning,
@@ -187,7 +199,11 @@ export default function GoalsPage() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(goalForm),
+        body: JSON.stringify({
+          ...goalForm,
+          target_amount: targetAmount,
+          current_amount: currentAmount,
+        }),
       });
 
       const data = await response.json();
@@ -613,11 +629,14 @@ export default function GoalsPage() {
                       {t.goals.targetAmount} <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={goalForm.target_amount || ''}
-                      onChange={(e) => setGoalForm({ ...goalForm, target_amount: parseFloat(e.target.value) || 0 })}
+                      type="text"
+                      inputMode="decimal"
+                      value={formattedTargetAmount}
+                      onChange={(e) => {
+                        const locale = language === 'en' ? 'en-US' : 'id-ID';
+                        const formatted = formatCurrencyInput(e.target.value, locale);
+                        setFormattedTargetAmount(formatted);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       required
                     />
@@ -628,11 +647,14 @@ export default function GoalsPage() {
                       {t.goals.currentAmount}
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={goalForm.current_amount || ''}
-                      onChange={(e) => setGoalForm({ ...goalForm, current_amount: parseFloat(e.target.value) || 0 })}
+                      type="text"
+                      inputMode="decimal"
+                      value={formattedCurrentAmount}
+                      onChange={(e) => {
+                        const locale = language === 'en' ? 'en-US' : 'id-ID';
+                        const formatted = formatCurrencyInput(e.target.value, locale);
+                        setFormattedCurrentAmount(formatted);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                     />
                   </div>

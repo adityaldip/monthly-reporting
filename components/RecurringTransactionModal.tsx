@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Currency } from '@/types/currency';
 import { Category } from '@/types/category';
 import { useI18n } from '@/lib/i18n/context';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils/currency';
 
 interface RecurringTransactionModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export default function RecurringTransactionModal({
   recurringTransactionId,
   onSuccess 
 }: RecurringTransactionModalProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [formData, setFormData] = useState({
     type: 'income' as TransactionType,
     amount: '',
@@ -76,9 +77,10 @@ export default function RecurringTransactionModal({
       
       if (response.ok && data.recurringTransaction) {
         const rt = data.recurringTransaction;
+        const locale = language === 'en' ? 'en-US' : 'id-ID';
         setFormData({
           type: rt.type,
-          amount: rt.amount.toString(),
+          amount: formatCurrencyInput(rt.amount.toString(), locale),
           currency_id: rt.currency_id || '',
           description: rt.description || '',
           category_id: rt.category_id || '',
@@ -174,7 +176,7 @@ export default function RecurringTransactionModal({
         credentials: 'include',
         body: JSON.stringify({
           type: formData.type,
-          amount: parseFloat(formData.amount),
+          amount: parseCurrencyInput(formData.amount, language === 'en' ? 'en-US' : 'id-ID'),
           currency_id: formData.currency_id,
           description: formData.description || undefined,
           category_id: formData.category_id,
@@ -354,11 +356,14 @@ export default function RecurringTransactionModal({
                   </label>
                   <input
                     id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onChange={(e) => {
+                      const locale = language === 'en' ? 'en-US' : 'id-ID';
+                      const formatted = formatCurrencyInput(e.target.value, locale);
+                      setFormData({ ...formData, amount: formatted });
+                    }}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
                     placeholder="0"

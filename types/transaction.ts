@@ -19,10 +19,18 @@ export interface Transaction {
   // New fields (using foreign keys)
   currency_id?: string;
   category_id?: string;
+  account_id?: string;
   description?: string;
   date: string;
   created_at: string;
   updated_at: string;
+  // Enriched data (from joins)
+  account?: {
+    id: string;
+    name: string;
+    account_number?: string;
+    type: string;
+  };
 }
 
 export interface TransactionCreate {
@@ -33,6 +41,7 @@ export interface TransactionCreate {
   category?: TransactionCategory;
   currency_id?: string;
   category_id?: string;
+  account_id?: string;
   description?: string;
   date: string;
 }
@@ -45,6 +54,7 @@ export interface TransactionUpdate {
   description?: string;
   category?: TransactionCategory;
   category_id?: string;
+  account_id?: string;
   date?: string;
 }
 

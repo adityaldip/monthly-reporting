@@ -45,18 +45,22 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    // Set session token di cookie - 1 week (7 days)
+    const oneWeekInSeconds = 60 * 60 * 24 * 7;
     response.cookies.set('sb-access-token', sessionData.session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: oneWeekInSeconds, // 1 week (7 days)
+      path: '/',
     });
 
     response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: oneWeekInSeconds, // 1 week (7 days)
+      path: '/',
     });
 
     return response;

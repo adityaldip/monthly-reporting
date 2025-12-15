@@ -37,12 +37,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all transactions for the period
+    // Note: Stats calculates balance for the PERIOD (month/year), not all-time
+    // Account balances in /api/accounts/balances calculate ALL-TIME balance
+    // This is why they may differ - dashboard shows current month, accounts show all-time
     const { data: transactions, error } = await supabase
       .from('transactions')
-      .select('type, amount, currency, currency_id, date')
+      .select('type, amount, currency, currency_id, date, account_id')
       .eq('user_id', user.id)
       .gte('date', startDate)
       .lte('date', endDate);
+    
+    console.log(`[STATS] Period: ${startDate} to ${endDate}, Transactions: ${transactions?.length || 0}`);
 
     if (error) {
       return NextResponse.json(

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import TransactionModal from '@/components/TransactionModal';
+import TransferModal from '@/components/TransferModal';
 import { useI18n } from '@/lib/i18n/context';
 import { useCurrency } from '@/lib/currency/context';
 
@@ -33,10 +34,13 @@ export default function DashboardPage() {
     },
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'income' | 'outcome' | undefined>(undefined);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [accountBalances, setAccountBalances] = useState<any[]>([]);
+  const [accountBalancesLoading, setAccountBalancesLoading] = useState(true);
   const { selectedCurrency, currencies } = useCurrency();
 
   useEffect(() => {
@@ -76,6 +80,7 @@ export default function DashboardPage() {
     setStatsLoading(true);
     setTransactionsLoading(true);
     setBudgetsLoading(true);
+    setAccountBalancesLoading(true);
     
     try {
       // Use provided currency or selectedCurrency
@@ -160,6 +165,24 @@ export default function DashboardPage() {
           .catch((err) => {
             console.error('Failed to load budgets:', err);
             setBudgetsLoading(false);
+          }),
+        
+        fetch('/api/accounts/balances', { credentials: 'include' })
+          .then(async (response) => {
+            if (response.status === 401) {
+              router.push('/login');
+              setAccountBalancesLoading(false);
+              return;
+            }
+            const data = await response.json();
+            if (response.ok) {
+              setAccountBalances(data.accountBalances || []);
+            }
+            setAccountBalancesLoading(false);
+          })
+          .catch((err) => {
+            console.error('Failed to load account balances:', err);
+            setAccountBalancesLoading(false);
           })
       ];
 
@@ -173,6 +196,7 @@ export default function DashboardPage() {
       setStatsLoading(false);
       setTransactionsLoading(false);
       setBudgetsLoading(false);
+      setAccountBalancesLoading(false);
     }
   };
 
@@ -507,7 +531,7 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8 hover:shadow-xl transition-shadow">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.dashboard.quickActions}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => {
                 setModalType('income');
@@ -551,6 +575,27 @@ export default function DashboardPage() {
                 />
               </svg>
               {t.dashboard.addOutcome}
+            </button>
+            <button
+              onClick={() => {
+                setIsTransferModalOpen(true);
+              }}
+              className="flex items-center justify-center px-6 py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1E40AF] transition font-medium"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                />
+              </svg>
+              Transfer Antar Akun
             </button>
           </div>
         </div>
@@ -635,6 +680,142 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Account Balances */}
+        {accountBalances.length > 0 && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">{t.dashboard.accountBalances || 'Saldo Akun'}</h2>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">Total Saldo (All Accounts)</p>
+                <p className="text-sm font-semibold text-gray-700">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: stats.currency || 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  }).format(accountBalances.reduce((sum: number, acc: any) => {
+                    // Sum all account balances (converted to display currency)
+                    const accountCurrency = acc.currency?.code || 'IDR';
+                    const displayCurrency = stats.currency || 'IDR';
+                    let displayBalance = acc.balance;
+                    
+                    if (accountCurrency !== displayCurrency && acc.currency && currencies.length > 0) {
+                      const accountCurrencyData = currencies.find((c: any) => c.code === accountCurrency);
+                      const displayCurrencyData = currencies.find((c: any) => c.code === displayCurrency);
+                      
+                      if (accountCurrencyData && displayCurrencyData) {
+                        let baseAmount = acc.balance;
+                        if (accountCurrency !== stats.baseCurrency && accountCurrencyData.exchange_rate > 0) {
+                          baseAmount = acc.balance / accountCurrencyData.exchange_rate;
+                        }
+                        
+                        if (displayCurrency !== stats.baseCurrency && displayCurrencyData.exchange_rate > 0) {
+                          displayBalance = baseAmount * displayCurrencyData.exchange_rate;
+                        } else {
+                          displayBalance = baseAmount;
+                        }
+                      }
+                    }
+                    
+                    return sum + displayBalance;
+                  }, 0))}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  (All-time balance from accounts)
+                </p>
+              </div>
+            </div>
+            {accountBalancesLoading ? (
+              <div className="text-center text-gray-500 py-8">{t.common.loading}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {accountBalances.map((account: any) => {
+                  const accountCurrency = account.currency?.code || 'IDR';
+                  const displayCurrency = stats.currency || 'IDR';
+                  
+                  // Convert balance to display currency if needed
+                  let displayBalance = account.balance;
+                  if (accountCurrency !== displayCurrency && account.currency && currencies.length > 0) {
+                    const accountCurrencyData = currencies.find((c: any) => c.code === accountCurrency);
+                    const displayCurrencyData = currencies.find((c: any) => c.code === displayCurrency);
+                    
+                    if (accountCurrencyData && displayCurrencyData) {
+                      // Convert: account currency -> base -> display currency
+                      let baseAmount = account.balance;
+                      if (accountCurrency !== stats.baseCurrency && accountCurrencyData.exchange_rate > 0) {
+                        baseAmount = account.balance / accountCurrencyData.exchange_rate;
+                      }
+                      
+                      if (displayCurrency !== stats.baseCurrency && displayCurrencyData.exchange_rate > 0) {
+                        displayBalance = baseAmount * displayCurrencyData.exchange_rate;
+                      } else {
+                        displayBalance = baseAmount;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key={account.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-gray-900">{account.name}</h3>
+                            {account.is_default && (
+                              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-[#059669]">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mb-1">
+                            {account.type === 'cash' && 'Tunai'}
+                            {account.type === 'bank' && 'Bank'}
+                            {account.type === 'credit_card' && 'Kartu Kredit'}
+                            {account.type === 'investment' && 'Investasi'}
+                            {account.type === 'other' && 'Lainnya'}
+                          </p>
+                          {account.account_number && (
+                            <p className="text-xs text-gray-400">{account.account_number}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-1">Saldo</p>
+                        <p
+                          className={`text-xl font-bold ${
+                            displayBalance >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
+                          }`}
+                        >
+                          {new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: displayCurrency,
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          }).format(displayBalance)}
+                        </p>
+                        {accountCurrency !== displayCurrency && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: accountCurrency,
+                              minimumFractionDigits: 0,
+                            }).format(account.balance)}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {account.transactionCount || 0} transaksi
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
             {/* Recent Transactions */}
             <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-shadow">
           <div className="p-6 border-b border-gray-200">
@@ -669,6 +850,9 @@ export default function DashboardPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t.dashboard.description}
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t.settings.accounts}
+                      </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t.dashboard.amountOriginal}
                       </th>
@@ -700,6 +884,18 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-500">
                           {tx.description || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {tx.account ? (
+                            <div>
+                              <div className="font-medium text-gray-900">{tx.account.name}</div>
+                              {tx.account.account_number && (
+                                <div className="text-xs text-gray-400">{tx.account.account_number}</div>
+                              )}
+                            </div>
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td
                           className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-right ${
@@ -782,6 +978,18 @@ export default function DashboardPage() {
           setModalType(undefined);
         }}
         type={modalType}
+        onSuccess={() => {
+          // Reload dashboard data with current selected currency
+          loadDashboardData(selectedCurrency);
+        }}
+      />
+
+      {/* Transfer Modal */}
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => {
+          setIsTransferModalOpen(false);
+        }}
         onSuccess={() => {
           // Reload dashboard data with current selected currency
           loadDashboardData(selectedCurrency);

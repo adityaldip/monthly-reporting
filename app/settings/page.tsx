@@ -6,15 +6,18 @@ import Navbar from '@/components/Navbar';
 import { Currency, CurrencyCreate } from '@/types/currency';
 import { Category, CategoryCreate } from '@/types/category';
 import { Budget, BudgetCreate } from '@/types/budget';
+import { Account, AccountCreate, AccountType } from '@/types/account';
 import { WORLDWIDE_CURRENCIES, getCurrencyByCode } from '@/lib/currencies';
 import { useI18n } from '@/lib/i18n/context';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils/currency';
 
 export default function SettingsPage() {
-  const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'currencies' | 'categories' | 'budgets'>('currencies');
+  const { t, language } = useI18n();
+  const [activeTab, setActiveTab] = useState<'currencies' | 'categories' | 'budgets' | 'accounts'>('currencies');
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingRates, setUpdatingRates] = useState(false);
   const [error, setError] = useState('');
@@ -24,6 +27,7 @@ export default function SettingsPage() {
   const [currencySubmitting, setCurrencySubmitting] = useState(false);
   const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [budgetSubmitting, setBudgetSubmitting] = useState(false);
+  const [accountSubmitting, setAccountSubmitting] = useState(false);
 
   // Currency form
   const [showCurrencyForm, setShowCurrencyForm] = useState(false);
@@ -65,6 +69,18 @@ export default function SettingsPage() {
     amount: '',
     currency_id: '',
     alert_threshold: '80',
+  });
+
+  // Account form
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [accountForm, setAccountForm] = useState<AccountCreate>({
+    name: '',
+    type: 'cash',
+    account_number: '',
+    currency_id: '',
+    description: '',
+    is_default: false,
   });
 
   useEffect(() => {
@@ -132,6 +148,26 @@ export default function SettingsPage() {
         ]);
         const [catData, currData] = await Promise.all([catRes.json(), currRes.json()]);
         if (catRes.ok) setCategories(catData.categories || []);
+        if (currRes.ok) setCurrencies(currData.currencies || []);
+      } else if (activeTab === 'accounts') {
+        const response = await fetch('/api/accounts', {
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          const errorMsg = data.error || t.common.error;
+          setError(errorMsg);
+          Swal.fire({
+            icon: 'error',
+            title: t.common.error,
+            text: errorMsg,
+          });
+          return;
+        }
+        setAccounts(data.accounts || []);
+        // Also load currencies for dropdown
+        const currRes = await fetch('/api/currencies', { credentials: 'include' });
+        const currData = await currRes.json();
         if (currRes.ok) setCurrencies(currData.currencies || []);
       }
     } catch (err) {
@@ -497,7 +533,8 @@ export default function SettingsPage() {
     setBudgetSubmitting(true);
 
     // Validate and parse amount
-    const amountValue = parseFloat(budgetForm.amount);
+    const locale = language === 'en' ? 'en-US' : 'id-ID';
+    const amountValue = parseCurrencyInput(budgetForm.amount, locale);
     if (!amountValue || amountValue <= 0) {
       Swal.fire({
         icon: 'error',
@@ -679,11 +716,12 @@ export default function SettingsPage() {
   const openEditBudget = (budget: Budget) => {
     setEditingBudget(budget);
     setSelectedMonths([]); // Clear selected months for edit mode
+    const locale = language === 'en' ? 'en-US' : 'id-ID';
     setBudgetForm({
       category_id: budget.category_id,
       year: budget.year,
       month: budget.month,
-      amount: budget.amount.toString(),
+      amount: formatCurrencyInput(budget.amount.toString(), locale),
       currency_id: budget.currency_id,
       alert_threshold: budget.alert_threshold.toString(),
     });
@@ -737,6 +775,137 @@ export default function SettingsPage() {
         });
       }
     }
+  };
+
+  // Account functions
+  const handleAccountSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accountSubmitting) return;
+    
+    setError('');
+    setSuccess('');
+    setAccountSubmitting(true);
+
+    try {
+      const url = editingAccount
+        ? `/api/accounts/${editingAccount.id}`
+        : '/api/accounts';
+      const method = editingAccount ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(accountForm),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Swal.fire({
+          icon: 'error',
+          title: t.common.error,
+          text: data.error || t.common.error,
+        });
+        setError(data.error || t.common.error);
+        setAccountSubmitting(false);
+        return;
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: t.common.success,
+        text: data.message || t.common.success,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      setShowAccountForm(false);
+      setEditingAccount(null);
+      setAccountForm({
+        name: '',
+        type: 'cash',
+        account_number: '',
+        currency_id: '',
+        description: '',
+        is_default: false,
+      });
+      setAccountSubmitting(false);
+      loadData();
+    } catch (err) {
+      console.error('Error submitting account:', err);
+      Swal.fire({
+        icon: 'error',
+        title: t.common.error,
+        text: t.common.error,
+      });
+      setError(t.common.error);
+      setAccountSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    const result = await Swal.fire({
+      title: t.settings.confirmDelete,
+      text: t.settings.confirmDeleteAccount,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: t.common.yes,
+      cancelButtonText: t.common.cancel,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch(`/api/accounts/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Swal.fire({
+          icon: 'error',
+          title: t.common.error,
+          text: data.error || t.common.error,
+        });
+        setError(data.error || t.common.error);
+        return;
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: t.common.success,
+        text: data.message || t.common.success,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      loadData();
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: t.common.error,
+        text: t.common.error,
+      });
+      setError(t.common.error);
+    }
+  };
+
+  const openEditAccount = (account: Account) => {
+    setEditingAccount(account);
+    setAccountForm({
+      name: account.name,
+      type: account.type,
+      account_number: account.account_number || '',
+      currency_id: account.currency_id || '',
+      description: account.description || '',
+      is_default: account.is_default,
+    });
+    setShowAccountForm(true);
   };
 
   return (
@@ -797,6 +966,16 @@ export default function SettingsPage() {
               }`}
             >
               {t.budget.title}
+            </button>
+            <button
+              onClick={() => setActiveTab('accounts')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'accounts'
+                  ? 'border-[#2563EB] text-[#2563EB]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {t.settings.accounts}
             </button>
           </nav>
         </div>
@@ -1609,14 +1788,9 @@ export default function SettingsPage() {
                       inputMode="decimal"
                       value={budgetForm.amount}
                       onChange={(e) => {
-                        // Allow only numbers and decimal point
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        // Prevent multiple decimal points
-                        const parts = value.split('.');
-                        const filteredValue = parts.length > 2 
-                          ? parts[0] + '.' + parts.slice(1).join('')
-                          : value;
-                        setBudgetForm({ ...budgetForm, amount: filteredValue });
+                        const locale = language === 'en' ? 'en-US' : 'id-ID';
+                        const formatted = formatCurrencyInput(e.target.value, locale);
+                        setBudgetForm({ ...budgetForm, amount: formatted });
                       }}
                       required
                       placeholder="0.00"
@@ -1688,6 +1862,265 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Accounts Tab */}
+        {activeTab === 'accounts' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">{t.settings.accounts}</h2>
+              <button
+                onClick={() => {
+                  setShowAccountForm(true);
+                  setEditingAccount(null);
+                  const defaultCurrency = currencies.find((c) => c.is_default);
+                  setAccountForm({
+                    name: '',
+                    type: 'cash',
+                    account_number: '',
+                    currency_id: defaultCurrency?.id || '',
+                    description: '',
+                    is_default: false,
+                  });
+                }}
+                className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium text-sm"
+              >
+                + {t.settings.addAccount}
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="p-6 text-center text-gray-500">{t.common.loading}</div>
+            ) : (
+              <div className="p-6">
+                {accounts.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    {t.settings.noAccount}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t.settings.name}
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t.settings.accountType}
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t.settings.accountNumber}
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t.settings.default}
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t.settings.actions}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {accounts.map((account) => (
+                          <tr key={account.id}>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{account.name}</div>
+                              {account.description && (
+                                <div className="text-sm text-gray-500">{account.description}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {account.type === 'cash' && t.settings.accountTypeCash}
+                              {account.type === 'bank' && t.settings.accountTypeBank}
+                              {account.type === 'credit_card' && t.settings.accountTypeCreditCard}
+                              {account.type === 'investment' && t.settings.accountTypeInvestment}
+                              {account.type === 'other' && t.settings.accountTypeOther}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {account.account_number || '-'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {account.is_default ? (
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-[#059669]">
+                                  {t.settings.default}
+                                </span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => openEditAccount(account)}
+                                className="text-[#2563EB] hover:text-[#1E40AF] mr-4"
+                              >
+                                {t.common.edit}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAccount(account.id)}
+                                className="text-[#EF4444] hover:text-[#DC2626]"
+                              >
+                                {t.settings.deleteAccount}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Account Form Modal */}
+        {showAccountForm && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
+              onClick={() => {
+                setShowAccountForm(false);
+                setEditingAccount(null);
+              }}
+            />
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div
+                className="relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    {editingAccount ? t.settings.editAccount : t.settings.addAccount}
+                  </h3>
+                  <form onSubmit={handleAccountSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.settings.name} <span className="text-[#EF4444]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={accountForm.name}
+                        onChange={(e) =>
+                          setAccountForm({ ...accountForm, name: e.target.value })
+                        }
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                        placeholder={t.settings.name}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.settings.accountType} <span className="text-[#EF4444]">*</span>
+                      </label>
+                      <select
+                        value={accountForm.type}
+                        onChange={(e) =>
+                          setAccountForm({
+                            ...accountForm,
+                            type: e.target.value as AccountType,
+                          })
+                        }
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      >
+                        <option value="cash">{t.settings.accountTypeCash}</option>
+                        <option value="bank">{t.settings.accountTypeBank}</option>
+                        <option value="credit_card">{t.settings.accountTypeCreditCard}</option>
+                        <option value="investment">{t.settings.accountTypeInvestment}</option>
+                        <option value="other">{t.settings.accountTypeOther}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.settings.accountNumber} <span className="text-gray-500 text-xs">(Opsional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={accountForm.account_number}
+                        onChange={(e) =>
+                          setAccountForm({ ...accountForm, account_number: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                        placeholder={t.settings.accountNumber}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.budget.currency}
+                      </label>
+                      <select
+                        value={accountForm.currency_id}
+                        onChange={(e) =>
+                          setAccountForm({ ...accountForm, currency_id: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      >
+                        <option value="">{t.common.filter} {t.budget.currency}</option>
+                        {currencies.map((curr) => (
+                          <option key={curr.id} value={curr.id}>
+                            {curr.code} - {curr.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.settings.accountDescription}
+                      </label>
+                      <textarea
+                        value={accountForm.description}
+                        onChange={(e) =>
+                          setAccountForm({ ...accountForm, description: e.target.value })
+                        }
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 resize-none"
+                        placeholder={t.settings.accountDescription}
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="is_default_account"
+                        checked={accountForm.is_default}
+                        onChange={(e) =>
+                          setAccountForm({ ...accountForm, is_default: e.target.checked })
+                        }
+                        className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
+                      />
+                      <label htmlFor="is_default_account" className="ml-2 block text-sm text-gray-900">
+                        {t.settings.setAsDefaultAccount}
+                      </label>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountForm(false);
+                          setEditingAccount(null);
+                        }}
+                        disabled={accountSubmitting}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {t.common.cancel}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={accountSubmitting}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {accountSubmitting && (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        {accountSubmitting ? t.common.loading : t.common.save}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           </div>

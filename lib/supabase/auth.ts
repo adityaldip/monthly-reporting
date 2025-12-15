@@ -28,12 +28,23 @@ export async function getAuthenticatedUser() {
     }
   }
 
-  // If access token is invalid/expired, try to refresh
-  // But we can't update cookies here, so we'll return error and let client handle it
-  // Or we can create a separate refresh endpoint
+  // If access token is invalid/expired, try to refresh using refresh token
   if (refreshToken) {
-    // Don't refresh here to avoid "Already Used" error
-    // Instead, return error so client can handle re-authentication
+    try {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+        refresh_token: refreshToken,
+      });
+
+      if (!refreshError && refreshData?.session && refreshData?.user) {
+        // Successfully refreshed, return the user
+        return { user: refreshData.user, error: null };
+      }
+    } catch (err) {
+      // Refresh failed, return error
+      console.error('Failed to refresh session:', err);
+    }
+    
+    // If refresh failed, return error
     return { user: null, error: 'Session expired. Please login again.' };
   }
 

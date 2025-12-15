@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import TransactionModal from '@/components/TransactionModal';
 import RecurringTransactionModal from '@/components/RecurringTransactionModal';
+import TransferModal from '@/components/TransferModal';
 import { Transaction } from '@/types/transaction';
 import { useI18n } from '@/lib/i18n/context';
 import { useCurrency } from '@/lib/currency/context';
@@ -44,10 +45,13 @@ export default function TransactionsPage() {
   const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [editingRecurringId, setEditingRecurringId] = useState<string | undefined>(undefined);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [accountBalances, setAccountBalances] = useState<any[]>([]);
 
   useEffect(() => {
     loadCategories();
     loadTransactions();
+    loadAccountBalances();
     // Set base currency from currencies
     if (currencies.length > 0) {
       const defaultCurrency = currencies.find((c: any) => c.is_default);
@@ -56,6 +60,20 @@ export default function TransactionsPage() {
       }
     }
   }, [currencies]);
+
+  const loadAccountBalances = async () => {
+    try {
+      const response = await fetch('/api/accounts/balances', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAccountBalances(data.accountBalances || []);
+      }
+    } catch (err) {
+      console.error('Failed to load account balances:', err);
+    }
+  };
 
   useEffect(() => {
     // Apply filters and sort when dependencies change
@@ -79,6 +97,7 @@ export default function TransactionsPage() {
 
   const loadTransactions = async () => {
     setLoading(true);
+    loadAccountBalances(); // Reload balances when transactions reload
     try {
       const url = '/api/transactions';
       
@@ -88,6 +107,29 @@ export default function TransactionsPage() {
       const data = await response.json();
       
       if (response.ok) {
+        // Debug: check if account is in transactions
+        if (data.transactions && data.transactions.length > 0) {
+          const txWithAccountId = data.transactions.filter((tx: any) => tx.account_id);
+          const txWithAccount = data.transactions.filter((tx: any) => tx.account && tx.account.name);
+          console.log(`[CLIENT] Transactions: ${data.transactions.length} total, ${txWithAccountId.length} with account_id, ${txWithAccount.length} with account.name`);
+          
+          if (txWithAccountId.length > 0 && txWithAccount.length === 0) {
+            // Account ID exists but account not enriched
+            const sample = txWithAccountId[0];
+            console.error('[CLIENT] Account not enriched! Sample transaction:', {
+              id: sample.id,
+              account_id: sample.account_id,
+              account: sample.account,
+              account_id_type: typeof sample.account_id
+            });
+          } else if (txWithAccount.length > 0) {
+            console.log('[CLIENT] Sample enriched transaction:', {
+              id: txWithAccount[0].id,
+              account_id: txWithAccount[0].account_id,
+              account: txWithAccount[0].account
+            });
+          }
+        }
         setAllTransactions(data.transactions || []);
       }
     } catch (err) {
@@ -427,6 +469,27 @@ export default function TransactionsPage() {
                   >
                     {t.transactions.addOutcome}
                   </button>
+                  <button
+                    onClick={() => {
+                      setIsTransferModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-[#1E40AF] transition font-medium text-sm sm:text-base flex items-center gap-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m4-4l4-4"
+                      />
+                    </svg>
+                    Transfer
+                  </button>
                 </>
               ) : (
                 <>
@@ -450,6 +513,98 @@ export default function TransactionsPage() {
             </div>
           </div>
           
+          {/* Account Balances Summary */}
+          {accountBalances.length > 0 && activeTab === 'transactions' && (
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Saldo Akun</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {accountBalances.map((account: any) => {
+                  const accountCurrency = account.currency?.code || 'IDR';
+                  const displayCurrency = selectedCurrency || accountCurrency;
+                  
+                  // Convert balance to display currency if needed
+                  let displayBalance = account.balance;
+                  if (accountCurrency !== displayCurrency && account.currency && currencies.length > 0) {
+                    const accountCurrencyData = currencies.find((c: any) => c.code === accountCurrency);
+                    const displayCurrencyData = currencies.find((c: any) => c.code === displayCurrency);
+                    const baseCurrency = currencies.find((c: any) => c.is_default);
+                    
+                    if (accountCurrencyData && displayCurrencyData && baseCurrency) {
+                      // Convert: account currency -> base -> display currency
+                      let baseAmount = account.balance;
+                      if (accountCurrency !== baseCurrency.code && accountCurrencyData.exchange_rate > 0) {
+                        baseAmount = account.balance / accountCurrencyData.exchange_rate;
+                      }
+                      
+                      if (displayCurrency !== baseCurrency.code && displayCurrencyData.exchange_rate > 0) {
+                        displayBalance = baseAmount * displayCurrencyData.exchange_rate;
+                      } else {
+                        displayBalance = baseAmount;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key={account.id}
+                      className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm">{account.name}</h4>
+                            {account.is_default && (
+                              <span className="px-1.5 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-[#059669]">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mb-1">
+                            {account.type === 'cash' && 'Tunai'}
+                            {account.type === 'bank' && 'Bank'}
+                            {account.type === 'credit_card' && 'Kartu Kredit'}
+                            {account.type === 'investment' && 'Investasi'}
+                            {account.type === 'other' && 'Lainnya'}
+                          </p>
+                          {account.account_number && (
+                            <p className="text-xs text-gray-400">{account.account_number}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-1">Saldo</p>
+                        <p
+                          className={`text-lg font-bold ${
+                            displayBalance >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
+                          }`}
+                        >
+                          {new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: displayCurrency,
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          }).format(displayBalance)}
+                        </p>
+                        {accountCurrency !== displayCurrency && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: accountCurrency,
+                              minimumFractionDigits: 0,
+                            }).format(account.balance)}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {account.transactionCount || 0} transaksi
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -729,6 +884,9 @@ export default function TransactionsPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t.transactions.description}
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t.settings.accounts}
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t.transactions.amountOriginal}
                     </th>
@@ -771,6 +929,22 @@ export default function TransactionsPage() {
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-500">
                         {tx.description || '-'}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {(() => {
+                          const account = (tx as any).account;
+                          if (account && account.name) {
+                            return (
+                              <div>
+                                <div className="font-medium text-gray-900">{account.name}</div>
+                                {account.account_number && (
+                                  <div className="text-xs text-gray-400">{account.account_number}</div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return <span className="text-gray-400">-</span>;
+                        })()}
                       </td>
                       <td
                           className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-right ${
@@ -987,6 +1161,7 @@ export default function TransactionsPage() {
         transactionId={editingTransactionId}
         onSuccess={() => {
           loadTransactions();
+          loadAccountBalances();
           setEditingTransactionId(undefined);
         }}
       />
@@ -1002,6 +1177,18 @@ export default function TransactionsPage() {
         onSuccess={() => {
           loadRecurringTransactions();
           setEditingRecurringId(undefined);
+        }}
+      />
+
+      {/* Transfer Modal */}
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => {
+          setIsTransferModalOpen(false);
+        }}
+        onSuccess={() => {
+          loadTransactions();
+          loadAccountBalances();
         }}
       />
     </div>
