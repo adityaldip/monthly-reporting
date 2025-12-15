@@ -65,6 +65,7 @@ export interface Translations {
     outcomeThisMonth: string;
     today: string;
     additionalStats: string;
+    accountBalances: string;
   };
 
   // Transactions
@@ -390,6 +391,7 @@ export const translations: Record<Language, Translations> = {
       outcomeThisMonth: 'Pengeluaran Bulan Ini',
       today: 'Hari Ini',
       additionalStats: 'Statistik Tambahan',
+      accountBalances: 'Saldo Akun',
     },
     transactions: {
       title: 'Transaksi',
@@ -697,6 +699,7 @@ export const translations: Record<Language, Translations> = {
       outcomeThisMonth: 'Outcome This Month',
       today: 'Today',
       additionalStats: 'Additional Statistics',
+      accountBalances: 'Account Balances',
     },
     transactions: {
       title: 'Transactions',
