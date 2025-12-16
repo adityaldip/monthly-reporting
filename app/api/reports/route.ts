@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     // Get date range
     let startDate = '';
     let endDate = '';
+    let monthForDaily = month; // For daily trends calculation
     
     if (month) {
       startDate = `${year}-${month.padStart(2, '0')}-01`;
@@ -29,6 +30,13 @@ export async function GET(request: NextRequest) {
       // Full year
       startDate = `${year}-01-01`;
       endDate = `${year}-12-31`;
+      // If no month selected, use current month for daily trends (only if current year)
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+      if (parseInt(year) === currentYear) {
+        monthForDaily = String(currentMonth);
+      }
     }
 
     // Get all transactions for the period
@@ -154,6 +162,110 @@ export async function GET(request: NextRequest) {
       outcome: data.outcome,
       balance: data.income - data.outcome,
     }));
+
+    // Calculate daily trends (use current month if no month selected, max 1 month)
+    let dailyTrends: Array<{ date: string; day: number; income: number; outcome: number; balance: number }> = [];
+    if (monthForDaily) {
+      const dailyData: Record<string, { income: number; outcome: number }> = {};
+      
+      // Get all days in the month
+      const daysInMonth = new Date(parseInt(year), parseInt(monthForDaily), 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${monthForDaily.padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        dailyData[dateStr] = { income: 0, outcome: 0 };
+      }
+
+      // Aggregate transactions by date
+      enrichedTransactions.forEach((tx) => {
+        const dateStr = tx.date.split('T')[0];
+        if (dailyData[dateStr]) {
+          if (tx.type === 'income') {
+            dailyData[dateStr].income += tx.amount;
+          } else {
+            dailyData[dateStr].outcome += tx.amount;
+          }
+        }
+      });
+
+      dailyTrends = Object.entries(dailyData).map(([date, data]) => ({
+        date,
+        day: new Date(date).getDate(),
+        income: data.income,
+        outcome: data.outcome,
+        balance: data.income - data.outcome,
+      })).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    // Calculate balance accumulation data (for balance chart)
+    // Get all transactions from the beginning of the selected period
+    let balanceChartData: Array<{ date: string; day: number; week: number; month: number; balance: number }> = [];
+    
+    const periodStartDate = month 
+      ? `${year}-${month.padStart(2, '0')}-01`
+      : `${year}-01-01`;
+    
+    const { data: allPeriodTransactions } = await supabase
+      .from('transactions')
+      .select('type, amount, currency, currency_id, date')
+      .eq('user_id', user.id)
+      .gte('date', periodStartDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    // Convert all transactions to base currency and group by date
+    const transactionsByDate: Record<string, number> = {};
+    (allPeriodTransactions || []).forEach((tx: any) => {
+      let currencyCode = baseCurrency;
+      if (tx.currency_id) {
+        const currencyData = currencyMap.get(tx.currency_id);
+        currencyCode = currencyData?.code || baseCurrency;
+      } else if (tx.currency) {
+        currencyCode = tx.currency;
+      }
+
+      let amount = parseFloat(tx.amount.toString());
+      if (currencyCode !== baseCurrency) {
+        const currencyData = currencyMap.get(currencyCode);
+        const rate = currencyData?.exchange_rate;
+        if (rate && rate > 0) {
+          amount = amount / rate;
+        }
+      }
+
+      const dateStr = tx.date.split('T')[0];
+      const netAmount = tx.type === 'income' ? amount : -amount;
+      transactionsByDate[dateStr] = (transactionsByDate[dateStr] || 0) + netAmount;
+    });
+
+    // Get all dates in the period for balance chart
+    const startDateObj = new Date(periodStartDate);
+    const endDateObj = new Date(endDate);
+    const currentDate = new Date(startDateObj);
+    let runningBalance = 0;
+
+    while (currentDate <= endDateObj) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // Add transaction amount for this date (if any)
+      if (transactionsByDate[dateStr]) {
+        runningBalance += transactionsByDate[dateStr];
+      }
+      
+      // Get week number (week of year)
+      const weekStart = new Date(currentDate);
+      weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+      const weekNumber = Math.ceil((weekStart.getTime() - new Date(currentDate.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+
+      balanceChartData.push({
+        date: dateStr,
+        day: currentDate.getDate(),
+        week: weekNumber,
+        month: currentDate.getMonth() + 1,
+        balance: runningBalance,
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
 
     // Calculate category breakdown (for outcome only)
     const categoryBreakdown: Record<string, { name: string; amount: number; icon: string; color: string; count: number }> = {};
@@ -324,6 +436,8 @@ export async function GET(request: NextRequest) {
           avgTransactionAmount,
         },
         monthlyTrends,
+        dailyTrends,
+        balanceChartData,
         categoryBreakdown: categoryData,
         budgetComparison,
         insights: {
@@ -353,6 +467,8 @@ export async function GET(request: NextRequest) {
         avgTransactionAmount,
       },
       monthlyTrends,
+      dailyTrends,
+      balanceChartData,
       categoryBreakdown: categoryData,
       insights: {
         topCategory,

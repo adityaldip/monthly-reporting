@@ -581,121 +581,158 @@ export default function GoalsPage() {
 
         {/* Goal Form Modal */}
         {showGoalForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowGoalForm(false)}
+            />
+
+            {/* Modal */}
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
                   <h2 className="text-xl font-bold text-gray-900">
                     {editingGoal ? t.goals.editGoal : t.goals.addGoal}
                   </h2>
                   <button
                     onClick={() => setShowGoalForm(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 transition"
+                    aria-label="Close"
                   >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.goalTitle} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={goalForm.title}
-                      onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                      required
-                    />
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+                  <div className="space-y-4">
+                    {/* Goal Title */}
+                    <div>
+                      <label htmlFor="goal-title" className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.goals.goalTitle} <span className="text-[#EF4444]">*</span>
+                      </label>
+                      <input
+                        id="goal-title"
+                        type="text"
+                        value={goalForm.title}
+                        onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                        required
+                        placeholder={t.goals.goalTitle}
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label htmlFor="goal-description" className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.goals.description}
+                      </label>
+                      <textarea
+                        id="goal-description"
+                        value={goalForm.description}
+                        onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
+                        rows={3}
+                        placeholder={t.goals.description}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900 resize-none"
+                      />
+                    </div>
+
+                    {/* Target Amount and Currency */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label htmlFor="target-amount" className="block text-sm font-medium text-gray-900 mb-1">
+                          {t.goals.targetAmount} <span className="text-[#EF4444]">*</span>
+                        </label>
+                        <input
+                          id="target-amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={formattedTargetAmount}
+                          onChange={(e) => {
+                            const locale = language === 'en' ? 'en-US' : 'id-ID';
+                            const formatted = formatCurrencyInput(e.target.value, locale);
+                            setFormattedTargetAmount(formatted);
+                          }}
+                          required
+                          placeholder="0.00"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="goal-currency" className="block text-sm font-medium text-gray-900 mb-1">
+                          {t.goals.currency} <span className="text-[#EF4444]">*</span>
+                        </label>
+                        <select
+                          id="goal-currency"
+                          value={goalForm.currency_id}
+                          onChange={(e) => setGoalForm({ ...goalForm, currency_id: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                        >
+                          <option value="">{t.goals.currency}</option>
+                          {currencies.map((curr) => (
+                            <option key={curr.id} value={curr.id}>
+                              {curr.code} {curr.symbol && `(${curr.symbol})`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Current Amount */}
+                    <div>
+                      <label htmlFor="current-amount" className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.goals.currentAmount} <span className="text-gray-500 text-xs">(Opsional)</span>
+                      </label>
+                      <input
+                        id="current-amount"
+                        type="text"
+                        inputMode="decimal"
+                        value={formattedCurrentAmount}
+                        onChange={(e) => {
+                          const locale = language === 'en' ? 'en-US' : 'id-ID';
+                          const formatted = formatCurrencyInput(e.target.value, locale);
+                          setFormattedCurrentAmount(formatted);
+                        }}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      />
+                    </div>
+
+                    {/* Deadline */}
+                    <div>
+                      <label htmlFor="goal-deadline" className="block text-sm font-medium text-gray-900 mb-1">
+                        {t.goals.deadline}
+                      </label>
+                      <input
+                        id="goal-deadline"
+                        type="date"
+                        value={goalForm.deadline}
+                        onChange={(e) => setGoalForm({ ...goalForm, deadline: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-gray-900"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.description}
-                    </label>
-                    <textarea
-                      value={goalForm.description}
-                      onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.targetAmount} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={formattedTargetAmount}
-                      onChange={(e) => {
-                        const locale = language === 'en' ? 'en-US' : 'id-ID';
-                        const formatted = formatCurrencyInput(e.target.value, locale);
-                        setFormattedTargetAmount(formatted);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.currentAmount}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={formattedCurrentAmount}
-                      onChange={(e) => {
-                        const locale = language === 'en' ? 'en-US' : 'id-ID';
-                        const formatted = formatCurrencyInput(e.target.value, locale);
-                        setFormattedCurrentAmount(formatted);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.currency} <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={goalForm.currency_id}
-                      onChange={(e) => setGoalForm({ ...goalForm, currency_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                      required
+                  {/* Actions */}
+                  <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowGoalForm(false)}
+                      disabled={goalSubmitting}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="">{t.common.all}</option>
-                      {currencies.map((curr) => (
-                        <option key={curr.id} value={curr.id}>
-                          {curr.code} - {curr.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.goals.deadline}
-                    </label>
-                    <input
-                      type="date"
-                      value={goalForm.deadline}
-                      onChange={(e) => setGoalForm({ ...goalForm, deadline: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
+                      {t.common.cancel}
+                    </button>
                     <button
                       type="submit"
                       disabled={goalSubmitting}
-                      className="flex-1 px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1E40AF] transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {goalSubmitting && (
                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -703,15 +740,7 @@ export default function GoalsPage() {
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       )}
-                      {goalSubmitting ? t.common.loading : t.common.save}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowGoalForm(false)}
-                      disabled={goalSubmitting}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t.common.cancel}
+                      {goalSubmitting ? t.common.loading : editingGoal ? t.common.save : t.common.save}
                     </button>
                   </div>
                 </form>
