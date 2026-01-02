@@ -20,34 +20,56 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
     const displayCurrency = searchParams.get('displayCurrency'); // Optional: currency to display stats in
 
+    // For total income/outcome: always calculate all-time (no date filter)
+    // For additional stats: use period filters if provided
     let startDate = '';
     let endDate = '';
+    let usePeriodFilter = false;
     
     if (year && month) {
       startDate = `${year}-${month.padStart(2, '0')}-01`;
       endDate = `${year}-${month.padStart(2, '0')}-31`;
+      usePeriodFilter = true;
     } else if (year) {
       startDate = `${year}-01-01`;
       endDate = `${year}-12-31`;
-    } else {
-      // Current month
-      const now = new Date();
-      startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+      usePeriodFilter = true;
     }
+    // If no year/month specified, calculate all-time totals (no date filter)
 
-    // Get all transactions for the period
-    // Note: Stats calculates balance for the PERIOD (month/year), not all-time
-    // Account balances in /api/accounts/balances calculate ALL-TIME balance
-    // This is why they may differ - dashboard shows current month, accounts show all-time
-    const { data: transactions, error } = await supabase
+    // Get all transactions for total income/outcome (all-time, no date filter)
+    // Note: Total income/outcome now shows ALL-TIME totals, not just current period
+    // Account balances in /api/accounts/balances also calculate ALL-TIME balance
+    let query = supabase
       .from('transactions')
       .select('type, amount, currency, currency_id, date, account_id')
-      .eq('user_id', user.id)
-      .gte('date', startDate)
-      .lte('date', endDate);
+      .eq('user_id', user.id);
     
-    console.log(`[STATS] Period: ${startDate} to ${endDate}, Transactions: ${transactions?.length || 0}`);
+    // Only apply date filter if explicitly requested (for period-specific queries)
+    // For dashboard, we want all-time totals
+    if (usePeriodFilter) {
+      query = query.gte('date', startDate).lte('date', endDate);
+    }
+    
+    const { data: transactions, error } = await query;
+    
+    if (error) {
+      console.error('[STATS] Error fetching transactions:', error);
+    }
+    
+    if (usePeriodFilter) {
+      console.log(`[STATS] Period: ${startDate} to ${endDate}, Transactions: ${transactions?.length || 0}`);
+    } else {
+      console.log(`[STATS] All-time totals, Transactions: ${transactions?.length || 0}`);
+      if (transactions && transactions.length > 0) {
+        console.log(`[STATS] Sample transaction:`, {
+          type: transactions[0].type,
+          amount: transactions[0].amount,
+          currency: transactions[0].currency,
+          currency_id: transactions[0].currency_id
+        });
+      }
+    }
 
     if (error) {
       return NextResponse.json(
@@ -97,6 +119,12 @@ export async function GET(request: NextRequest) {
     // Calculate stats by currency
     const statsByCurrency: Record<string, { income: number; outcome: number }> = {};
 
+    if (!transactions || transactions.length === 0) {
+      console.log('[STATS] No transactions found for user');
+    } else {
+      console.log(`[STATS] Processing ${transactions.length} transactions`);
+    }
+
     transactions?.forEach((tx) => {
       let currencyCode = baseCurrency;
       
@@ -112,12 +140,20 @@ export async function GET(request: NextRequest) {
         statsByCurrency[currencyCode] = { income: 0, outcome: 0 };
       }
 
+      const amount = parseFloat(tx.amount.toString());
+      if (isNaN(amount)) {
+        console.warn(`[STATS] Invalid amount for transaction:`, tx);
+        return;
+      }
+
       if (tx.type === 'income') {
-        statsByCurrency[currencyCode].income += parseFloat(tx.amount.toString());
+        statsByCurrency[currencyCode].income += amount;
       } else {
-        statsByCurrency[currencyCode].outcome += parseFloat(tx.amount.toString());
+        statsByCurrency[currencyCode].outcome += amount;
       }
     });
+
+    console.log(`[STATS] Stats by currency:`, statsByCurrency);
 
     // Convert all to base currency first
     // exchange_rate from API represents: 1 base currency = exchange_rate * 1 currency
@@ -131,6 +167,7 @@ export async function GET(request: NextRequest) {
         // Same currency, no conversion needed
         totalIncomeBase += stats.income;
         totalOutcomeBase += stats.outcome;
+        console.log(`[STATS] ${currencyCode} (base): income=${stats.income}, outcome=${stats.outcome}`);
       } else {
         // Get exchange rate for this currency from map
         const currencyData = currencyMap.get(currencyCode);
@@ -141,20 +178,28 @@ export async function GET(request: NextRequest) {
           // Try to get from currency code directly
           const codeData = currencyMap.get(currencyCode);
           if (codeData && codeData.exchange_rate > 0) {
-            totalIncomeBase += stats.income / codeData.exchange_rate;
-            totalOutcomeBase += stats.outcome / codeData.exchange_rate;
+            const convertedIncome = stats.income / codeData.exchange_rate;
+            const convertedOutcome = stats.outcome / codeData.exchange_rate;
+            totalIncomeBase += convertedIncome;
+            totalOutcomeBase += convertedOutcome;
+            console.log(`[STATS] ${currencyCode} (rate=${codeData.exchange_rate}): income=${stats.income}->${convertedIncome}, outcome=${stats.outcome}->${convertedOutcome}`);
           } else {
             // If still no valid rate, skip this currency (log warning)
-            console.warn(`No valid exchange rate for ${currencyCode}, skipping conversion`);
+            console.warn(`[STATS] No valid exchange rate for ${currencyCode}, skipping conversion. Stats:`, stats);
             // Don't add to totals to avoid incorrect calculations
           }
         } else {
           // Convert to base currency: divide by exchange_rate
-          totalIncomeBase += stats.income / rate;
-          totalOutcomeBase += stats.outcome / rate;
+          const convertedIncome = stats.income / rate;
+          const convertedOutcome = stats.outcome / rate;
+          totalIncomeBase += convertedIncome;
+          totalOutcomeBase += convertedOutcome;
+          console.log(`[STATS] ${currencyCode} (rate=${rate}): income=${stats.income}->${convertedIncome}, outcome=${stats.outcome}->${convertedOutcome}`);
         }
       }
     }
+
+    console.log(`[STATS] Total in base currency (${baseCurrency}): income=${totalIncomeBase}, outcome=${totalOutcomeBase}`);
 
     // If displayCurrency is specified and different from base, convert to display currency
     let totalIncome = totalIncomeBase;
@@ -170,8 +215,13 @@ export async function GET(request: NextRequest) {
         totalIncome = totalIncomeBase * displayCurrencyData.exchange_rate;
         totalOutcome = totalOutcomeBase * displayCurrencyData.exchange_rate;
         displayCurrencyCode = displayCurrency;
+        console.log(`[STATS] Converted to display currency ${displayCurrency} (rate=${displayCurrencyData.exchange_rate}): income=${totalIncome}, outcome=${totalOutcome}`);
+      } else {
+        console.warn(`[STATS] Display currency ${displayCurrency} not found or invalid rate, using base currency`);
       }
     }
+
+    console.log(`[STATS] Final totals: income=${totalIncome}, outcome=${totalOutcome}, balance=${totalIncome - totalOutcome}, currency=${displayCurrencyCode}`);
 
     // Calculate additional stats: this month income, outcome today, this week, this month
     // Use UTC to avoid timezone issues
@@ -319,11 +369,13 @@ export async function GET(request: NextRequest) {
       balance: totalIncome - totalOutcome,
       currency: displayCurrencyCode,
       baseCurrency: baseCurrency,
-      period: {
-        month: month || new Date().getMonth() + 1,
-        year: year || new Date().getFullYear(),
+      period: usePeriodFilter ? {
+        month: month ? parseInt(month) : undefined,
+        year: year ? parseInt(year) : undefined,
+      } : {
+        allTime: true,
       },
-      // Additional stats
+      // Additional stats (these are always for current period: today, this week, this month)
       thisMonthIncome,
       outcomeToday,
       outcomeThisWeek,
